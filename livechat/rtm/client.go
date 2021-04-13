@@ -2,10 +2,12 @@ package rtm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/livechat/onboarding/livechat/auth"
+	log "github.com/sirupsen/logrus"
 )
 
 type payload map[string]interface{}
@@ -14,45 +16,52 @@ type livechatClient struct {
 	conn *websocket.Conn
 }
 
-func (c *livechatClient) Call(ctx context.Context, payload payload) (<-chan []byte, error) {
-	msg := make(chan []byte)
-	if err := c.conn.WriteJSON(payload); err != nil {
-		close(msg)
-		return msg, fmt.Errorf("rtm_client: %w", err)
-	}
+func (c *livechatClient) Ping(ctx context.Context) error {
+	ticker := time.NewTicker(10 * time.Second)
+	errHandler := make(chan error)
 
-	go c.FindByAction(ctx, "ping", msg)
+	defer func() {
+		ticker.Stop()
+		close(errHandler)
 
-	return msg, nil
-}
+		c.Close()
+	}()
 
-func (c *livechatClient) FindByAction(ctx context.Context, actionName string, msg chan<- []byte) error {
-	type actionMsg struct {
-		Action string `json:"action"`
+	isPingOK := func() {
+		if err := c.SendPing(ctx); err != nil {
+			errHandler <- err
+			return
+		}
+		log.Debug("Sent ping to LiveChat")
 	}
 
 	for {
-		_, incomingMsg, err := c.conn.ReadMessage()
-		if err != nil {
-			return fmt.Errorf("rtm_client: %w", err)
-		}
-
-		action := actionMsg{}
-		if err := json.Unmarshal(incomingMsg, &action); err != nil {
-			return fmt.Errorf("rtm_client: %w", err)
-		}
-
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("rtm_client: %w", ctx.Err())
-		default:
-			if actionName == action.Action {
-				msg <- incomingMsg
-				close(msg)
-				return nil
-			}
+			return fmt.Errorf("rtm_client: ping action: %w", ctx.Err())
+		case err := <-errHandler:
+			log.WithError(err).Warn("Agent stopped working")
+			return fmt.Errorf("rtm_client: ping action: %w", err)
+		case <-ticker.C:
+			go isPingOK()
 		}
 	}
+}
+
+func (c *livechatClient) Login(ctx context.Context) error {
+	authToken, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return fmt.Errorf("rtm_client: login action: %w", err)
+	}
+
+	err = c.SendLogin(ctx, &LoginRequest{Token: authToken})
+	if err != nil {
+		return fmt.Errorf("rtm_client: login action: %w", err)
+	}
+
+	log.WithContext(ctx).Debug("Sent request for authorization")
+
+	return nil
 }
 
 func (c *livechatClient) Close() error {

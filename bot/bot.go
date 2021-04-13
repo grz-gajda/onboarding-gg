@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/livechat/onboarding/livechat"
@@ -13,10 +14,24 @@ import (
 type agent struct {
 	ID   livechat.AgentID
 	Conn rtm.LivechatCommunicator
+
+	closeCh chan struct{}
+	closeFn func()
 }
 
 func newAgent(ID livechat.AgentID, conn rtm.LivechatCommunicator) *agent {
-	return &agent{ID: ID, Conn: conn}
+	closeCh := make(chan struct{}, 1)
+	closeFn := func() {
+		closeCh <- struct{}{}
+		close(closeCh)
+	}
+
+	return &agent{
+		ID:      ID,
+		Conn:    conn,
+		closeCh: closeCh,
+		closeFn: closeFn,
+	}
 }
 
 func (a *agent) Start(ctx context.Context) error {
@@ -33,6 +48,8 @@ func (a *agent) Start(ctx context.Context) error {
 			}
 		case err := <-errHandler:
 			return fmt.Errorf("bot agent: start action: %w", err)
+		case <-a.closeCh:
+			return errors.New("bot agent: start action: agent terminated")
 		}
 	}
 }

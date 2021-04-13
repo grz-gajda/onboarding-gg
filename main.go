@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
-	"os/signal"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/gorilla/websocket"
 	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
+	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
 	log "github.com/sirupsen/logrus"
 )
@@ -40,42 +40,23 @@ func main() {
 
 	// LIVECHAT SERVICES
 	lcHTTP := web.New(httpClient, cfg.URL.HTTP)
-	botManager := bot.New(cfg.URL.WS, lcHTTP)
+	lcRTM, err := rtm.New(ctx, &websocket.Dialer{HandshakeTimeout: 5 * time.Second}, cfg.URL.WS)
+	if err != nil {
+		log.WithError(err).Panic("Cannot initialize connection to LiveChat")
+	}
+
+	if err := lcRTM.Login(ctx); err != nil {
+		log.WithError(err).Panic("Cannot authorize connection to LiveChat")
+	}
+
+	botManager := bot.New(lcHTTP, lcRTM)
 
 	// BACKGROUND
-	osSignals := make(chan os.Signal, 1)
-	signal.Notify(osSignals, os.Interrupt)
-
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				log.WithField("recover", err).Panic("Cannot gracefully close the app")
-			}
-
-			log.Debug("App closed gracefully")
-			os.Exit(0)
-		}()
-
-		closeApp := func(ctx context.Context, withCancel bool) {
-			go func() {
-				<-time.After(10 * time.Second)
-				log.WithContext(ctx).Fatalf("Forced shutdown")
-			}()
-
-			httpClient.CloseIdleConnections()
-			botManager.Destroy(ctx)
-			if withCancel {
-				cancel()
-			}
-		}
-
-		select {
-		case <-ctx.Done():
-			closeApp(ctx, false)
-		case <-osSignals:
-			closeApp(ctx, true)
-		}
-	}()
+	go lcRTM.Ping(ctx)
+	Shutdown(ctx, cancel, func() {
+		httpClient.CloseIdleConnections()
+		botManager.Destroy(ctx)
+	})
 
 	// HTTP
 	router := chi.NewRouter()

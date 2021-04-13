@@ -2,113 +2,63 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io"
 	"sync"
 
-	"github.com/gorilla/websocket"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type manager struct {
-	mu     sync.Mutex
 	lcHTTP web.LivechatRequests
-	dialer *websocket.Dialer
-	wsURL  string
+	lcRTM  rtm.LivechatCommunicator
 
-	apps []*app
+	apps apps
 }
 
 func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
-	m.mu.Lock()
-
-	for _, app := range m.apps {
-		if app.licenseID == id {
-			m.mu.Unlock()
-			return fmt.Errorf("manager: install action: app is already registered")
-		}
-	}
-
-	conn, err := rtm.New(ctx, m.dialer, m.wsURL)
-	if err != nil {
-		m.mu.Unlock()
-		return fmt.Errorf("manager: install action: %w", err)
-	}
-
-	app := newApp(m.lcHTTP, conn, id)
-	m.apps = append(m.apps, app)
-
-	m.mu.Unlock()
-
-	go app.Login(ctx)
-	go app.Ping(ctx)
-
-	if err := app.FetchBots(ctx, m.dialer, m.wsURL); err != nil {
-		logrus.WithError(err).WithContext(ctx).WithField("license id", id).Error("Cannot fetch/create bots for this licesnse")
+	app := newApp(m.lcHTTP, m.lcRTM, id)
+	if err := m.apps.Register(app); err != nil {
 		return err
 	}
 
+	if err := app.FetchBots(ctx); err != nil {
+		return err
+	}
+
+	log.WithField("license_id", id).Info("Installed application")
 	return nil
 }
 
 func (m *manager) UninstallApp(ctx context.Context, id livechat.LicenseID) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	uninstalledApp := m.apps.Unregister(id)
+	if uninstalledApp == nil {
+		return fmt.Errorf("app (license id: %v) is not registered", id)
+	}
 
-	wg := &sync.WaitGroup{}
-
-	newApps := []*app{}
-
-	for _, app := range m.apps {
-		if app.licenseID != id {
-			newApps = append(newApps, app)
-			continue
-		}
-
-		for _, agent := range app.bots {
-			wg.Add(1)
-			logrus.WithField("bot_id", agent.ID).Debug("Agent is going to be destroyed")
-
-			go func(connClose io.Closer, agentID livechat.AgentID) {
-				defer wg.Done()
-				defer func() {
-					logrus.WithField("bot_id", agentID).Debug("Agent removed")
-				}()
-
-				if err := connClose.Close(); err != nil {
-					logrus.WithError(err).WithField("bot_id", agentID).Error("Cannot close the connection with LiveChat")
-				}
-
-				if _, err := m.lcHTTP.DeleteBot(ctx, &web.DeleteBotRequest{ID: agentID}); err != nil {
-					logrus.WithError(err).WithField("bot_id", agentID).Error("Cannot remove agent from LiveChat")
-				}
-			}(agent.Conn, agent.ID)
+	for _, agent := range uninstalledApp.agents.agents {
+		agent.closeFn()
+		if _, err := m.lcHTTP.DeleteBot(ctx, &web.DeleteBotRequest{ID: agent.ID}); err != nil {
+			log.WithField("agent_id", agent.ID).WithContext(ctx).WithError(err).Error("Cannot remove agent from LiveChat")
 		}
 	}
 
-	m.apps = newApps
-	wg.Wait()
+	log.WithField("license_id", id).Info("Uninstalled application")
 	return nil
 }
 
 func (m *manager) Destroy(ctx context.Context) {
 	wg := &sync.WaitGroup{}
 
-	for _, app := range m.apps {
+	for _, app := range m.apps.apps {
 		wg.Add(1)
 
-		go func(licenseID livechat.LicenseID) {
-			logEntry := logrus.WithField("license_id", licenseID).WithContext(ctx)
-			logEntry.Debug("Destroying app")
-			err := m.UninstallApp(ctx, licenseID)
-			if err != nil {
-				logEntry.WithError(err).Error("Something went wrong during destroying the app")
-			} else {
-				logEntry.Debug("App destroyed")
-			}
+		go func(id livechat.LicenseID) {
+			defer wg.Done()
+			m.UninstallApp(ctx, id)
 		}(app.licenseID)
 	}
 
@@ -116,20 +66,21 @@ func (m *manager) Destroy(ctx context.Context) {
 }
 
 func (m *manager) JoinChat(ctx context.Context, license livechat.LicenseID, chat livechat.ChatID) error {
-	m.mu.Lock()
-	var app *app
-	for _, a := range m.apps {
-		if a.licenseID == license {
-			app = a
-			break
-		}
-	}
-	m.mu.Unlock()
+	return errors.New("not implemented yet")
+	// m.mu.Lock()
+	// var app *app
+	// for _, a := range m.apps {
+	// 	if a.licenseID == license {
+	// 		app = a
+	// 		break
+	// 	}
+	// }
+	// m.mu.Unlock()
 
-	agents := []livechat.AgentID{}
-	for _, agent := range app.bots {
-		agents = append(agents, agent.ID)
-	}
+	// agents := []livechat.AgentID{}
+	// for _, agent := range app.bots {
+	// 	agents = append(agents, agent.ID)
+	// }
 
-	return nil
+	// return nil
 }

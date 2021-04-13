@@ -2,26 +2,30 @@ package bot
 
 import (
 	"context"
-	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/livechat/onboarding/livechat"
+	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
 )
 
-type UninstallBot func(context.Context, string) error
-
-type BotManager interface {
+type Manager interface {
+	// InstallApp allows to register new license into memory
+	// and fetch existing (or create a new one) bots (agents).
 	InstallApp(context.Context, livechat.LicenseID) error
+	// UninstallApp removes the whole memory footprint and cancel
+	// existing connections to LiveChat.
 	UninstallApp(context.Context, livechat.LicenseID) error
+	// Destroy does everything what UninstallApp but for every license.
 	Destroy(context.Context)
+	// JoinChat allows to redirect existing chat to one of existing
+	// agents (bots).
 	JoinChat(context.Context, livechat.LicenseID, livechat.ChatID) error
 }
 
-func New(websocketURL string, httpClient web.LivechatRequests) BotManager {
+func New(httpClient web.LivechatRequests, rtmClient rtm.LivechatCommunicator) Manager {
 	return &manager{
-		wsURL:  websocketURL,
 		lcHTTP: httpClient,
-		dialer: &websocket.Dialer{HandshakeTimeout: 5 * time.Second},
+		lcRTM:  rtmClient,
+		apps:   apps{},
 	}
 }

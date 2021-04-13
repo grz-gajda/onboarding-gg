@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/livechat/onboarding/livechat"
+	log "github.com/sirupsen/logrus"
 )
 
 type Client interface {
@@ -17,9 +18,11 @@ type LivechatCommunicator interface {
 	// STATE
 	Close() error
 
+	// MANAGE
+	Ping(context.Context) error
+	Login(context.Context) error
+
 	// ACTIONS
-	SendPing(context.Context) error
-	SendLogin(context.Context, *LoginRequest) error
 	SendTransferChat(context.Context, livechat.ChatID, []livechat.AgentID) error
 
 	// READERS
@@ -31,6 +34,8 @@ func New(ctx context.Context, client Client, url string) (LivechatCommunicator, 
 	if err != nil {
 		return &livechatClient{}, fmt.Errorf("rtm_client: %w", err)
 	}
+
+	log.WithContext(ctx).Info("Initialized connection with LiveChat RTM")
 
 	return &livechatClient{conn: conn}, nil
 }
