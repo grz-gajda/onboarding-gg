@@ -1,0 +1,13 @@
+{
+  "auth": {
+    "username": "auth.username",
+    "password": "auth.password"
+  },
+  "credentials": {
+    "client_id": "credentials.client_id"
+  },
+  "url": {
+    "http": "",
+    "ws": ""
+  }
+}

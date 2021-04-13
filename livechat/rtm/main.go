@@ -1,0 +1,69 @@
+package rtm
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+
+	"github.com/gorilla/websocket"
+	"github.com/livechat/onboarding/livechat"
+)
+
+type Client interface {
+	DialContext(ctx context.Context, urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error)
+}
+
+type LivechatCommunicator interface {
+	// STATE
+	Close() error
+
+	// ACTIONS
+	SendPing(context.Context) error
+	SendLogin(context.Context, *LoginRequest) error
+	SendTransferChat(context.Context, livechat.ChatID, []livechat.AgentID) error
+
+	// READERS
+	Read(context.Context) (<-chan []byte, <-chan error)
+}
+
+func New(ctx context.Context, client Client, url string) (LivechatCommunicator, error) {
+	conn, _, err := client.DialContext(ctx, url, nil)
+	if err != nil {
+		return &livechatClient{}, fmt.Errorf("rtm_client: %w", err)
+	}
+
+	return &livechatClient{conn: conn}, nil
+}
+
+type SendEvent struct {
+	Type       string `json:"type"`
+	Text       string `json:"text"`
+	Recipients string `json:"recipients"`
+}
+
+type Action struct {
+	Action string `json:"action"`
+}
+
+type PingResponse struct {
+	Action
+	Success bool   `json:"success,omitempty"`
+	Type    string `json:"type"`
+	Payload struct {
+		Reason string `json:"reason,omitempty"`
+	} `json:"payload,omitempty"`
+}
+
+type LoginRequest struct {
+	Token string
+}
+
+type LoginResponse struct {
+	Action
+	Payload struct {
+		Error struct {
+			Message string `json:"message"`
+			Type    string `json:"type"`
+		} `json:"error,omitempty"`
+	} `json:"payload"`
+}
