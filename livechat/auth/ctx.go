@@ -13,6 +13,7 @@ type ctxToken string
 var (
 	authToken   = ctxToken("auth_bearer")
 	clientToken = ctxToken("client_id")
+	authorToken = ctxToken("with_author_token")
 )
 
 func WithToken(ctx context.Context, username, password string) context.Context {
@@ -26,8 +27,15 @@ func WithClientID(ctx context.Context, clientID livechat.ClientID) context.Conte
 	return context.WithValue(ctx, clientToken, clientID)
 }
 
+func WithAuthorID(ctx context.Context, authorID livechat.AgentID) context.Context {
+	return context.WithValue(ctx, authorToken, authorID)
+}
+
 func GetAuthToken(ctx context.Context) (string, error) {
-	bearerToken := ctx.Value(authToken).(string)
+	bearerToken, ok := ctx.Value(authToken).(string)
+	if !ok {
+		return "", fmt.Errorf("auth: missing authorization token")
+	}
 	if bearerToken == "" {
 		return "", fmt.Errorf("auth: missing authorization token")
 	}
@@ -35,9 +43,23 @@ func GetAuthToken(ctx context.Context) (string, error) {
 }
 
 func GetClientID(ctx context.Context) (livechat.ClientID, error) {
-	clientID := ctx.Value(clientToken).(livechat.ClientID)
+	clientID, ok := ctx.Value(clientToken).(livechat.ClientID)
+	if !ok {
+		return "", fmt.Errorf("auth: missing client id")
+	}
 	if clientID == "" {
 		return "", fmt.Errorf("auth: missing client id")
 	}
 	return clientID, nil
+}
+
+func GetAuthorID(ctx context.Context) (livechat.AgentID, error) {
+	authorID, ok := ctx.Value(authorToken).(livechat.AgentID)
+	if !ok {
+		return "", fmt.Errorf("auth: missing author id")
+	}
+	if authorID == "" {
+		return "", fmt.Errorf("auth: missing author id")
+	}
+	return authorID, nil
 }

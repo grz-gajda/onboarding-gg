@@ -1,4 +1,4 @@
-package bot
+package bot_webhooks
 
 import (
 	"context"
@@ -17,15 +17,13 @@ type Manager interface {
 	UninstallApp(context.Context, livechat.LicenseID) error
 	// Destroy does everything what UninstallApp but for every license.
 	Destroy(context.Context)
-	// JoinChat allows to redirect existing chat to one of existing
-	// agents (bots).
-	JoinChat(context.Context, livechat.LicenseID, livechat.ChatID) error
+
+	Redirect(context.Context, rtm.Push) error
 }
 
-func New(httpClient web.LivechatRequests, rtmClient rtm.LivechatCommunicator) Manager {
+func New(lcHTTP web.LivechatRequests) Manager {
 	return &manager{
-		lcHTTP: httpClient,
-		lcRTM:  rtmClient,
-		apps:   apps{},
+		lcHTTP: lcHTTP,
+		apps:   &apps{},
 	}
 }

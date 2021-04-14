@@ -49,6 +49,9 @@ func (c *livechatClient) sendRequest(ctx context.Context, endpoint string, paylo
 	req.Header.Add("Authorization", fmt.Sprintf("Basic %s", bearerToken))
 	req.Header.Add("Content-type", "application/json")
 	req.Header.Add("Accept", "application/json")
+	if authorID, err := auth.GetAuthorID(ctx); err != nil {
+		req.Header.Add("X-Author-ID", string(authorID))
+	}
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {

@@ -1,4 +1,4 @@
-package bot
+package bot_rtm
 
 import (
 	"context"

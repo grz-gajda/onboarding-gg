@@ -1,4 +1,4 @@
-package bot
+package bot_rtm
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/livechat/onboarding/bot/actions"
+	"github.com/livechat/onboarding/bot_rtm/actions"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/rtm"
 	log "github.com/sirupsen/logrus"

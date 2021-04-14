@@ -1,4 +1,4 @@
-package bot
+package bot_rtm
 
 import (
 	"context"
@@ -59,18 +59,4 @@ func (m *manager) Destroy(ctx context.Context) {
 	}
 
 	wg.Wait()
-}
-
-func (m *manager) JoinChat(ctx context.Context, license livechat.LicenseID, chat livechat.ChatID) error {
-	agents := []string{}
-	app, err := m.apps.Find(license)
-	if err != nil {
-		return err
-	}
-
-	for _, a := range app.agents.agents {
-		agents = append(agents, string(a.ID))
-	}
-
-	return m.lcRTM.SendTransferChat(ctx, chat, agents)
 }

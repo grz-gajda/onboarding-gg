@@ -9,10 +9,25 @@ import (
 	"github.com/livechat/onboarding/livechat"
 )
 
+type appMethod string
+
+const (
+	webhooksMethod = "webhooks"
+	rtmMethod      = "rtm"
+)
+
 type config struct {
+	Methods     appMethod   `json:"methods"`
 	Auth        authConfig  `json:"auth" validate:"required"`
 	Credentials credentials `json:"credentials" validate:"required"`
 	URL         urlConfig   `json:"url" validate:"required"`
+}
+
+func (c *config) SelectMethod() appMethod {
+	if c.Methods == "" {
+		return webhooksMethod
+	}
+	return c.Methods
 }
 
 type authConfig struct {
