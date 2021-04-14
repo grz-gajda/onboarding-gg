@@ -40,7 +40,6 @@ func (c *livechatClient) SendEvent(ctx context.Context, chatID livechat.ChatID, 
 				"recipients": "all",
 			},
 		},
-		"author_id": agentID,
 	}
 
 	logrus.WithField("req", req).Debug("Send event payload")
