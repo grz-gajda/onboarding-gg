@@ -3,6 +3,7 @@ package bot_webhooks
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/livechat/onboarding/livechat"
@@ -87,6 +88,7 @@ func (a *app) UnregisterActions(ctx context.Context) error {
 }
 
 func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat) error {
+	log.WithField("agents", a.agents).Debug("TransferChat action")
 	agent, err := a.agents.FindByChatExclude(msg.Payload.Chat.ID)
 	if err != nil {
 		return fmt.Errorf("bot: transfer_chat action: %w", err)
@@ -103,7 +105,14 @@ func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat) error
 		},
 	})
 
-	return fmt.Errorf("bot: transfer_chat action: %w", err)
+	if err != nil {
+		if !strings.Contains(err.Error(), "One or more of requested agents are already present in the chat") {
+			return fmt.Errorf("bot: transfer_chat action: %w", err)
+		}
+	}
+
+	agent.chats = append(agent.chats, msg.Payload.Chat.ID)
+	return nil
 }
 
 func (a *app) CreateBot(ctx context.Context) error {
@@ -153,6 +162,8 @@ func (a *app) FetchBots(ctx context.Context) error {
 }
 
 func (a *app) IncomingEvent(ctx context.Context, msg *rtm.PushIncomingMessage) error {
+	log.WithField("agents", a.agents).WithField("chat_id", msg.Payload.ChatID).Debug("IncomingEvent action")
+
 	agent, err := a.agents.FindByChat(msg.Payload.ChatID)
 	if err != nil {
 		return fmt.Errorf("bot: incoming_event action: %w", err)

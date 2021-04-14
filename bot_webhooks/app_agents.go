@@ -66,6 +66,9 @@ func (a *agents) FindByChatExclude(chatID livechat.ChatID) (*agent, error) {
 	defer a.mu.Unlock()
 
 	for _, agent := range a.agents {
+		if len(agent.chats) == 0 {
+			return agent, nil
+		}
 		hasChat := false
 
 		for _, chat := range agent.chats {
