@@ -67,3 +67,10 @@ func (c *livechatClient) Login(ctx context.Context) error {
 func (c *livechatClient) Close() error {
 	return c.conn.Close()
 }
+
+func (c *livechatClient) WriteJSON(v interface{}) error {
+	if err := c.conn.WriteJSON(v); err != nil {
+		return fmt.Errorf("rtm_client: %w", err)
+	}
+	return nil
+}

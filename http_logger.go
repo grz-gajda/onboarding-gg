@@ -39,5 +39,5 @@ func (entry *logrusEntry) Write(status, bytes int, header http.Header, elapsed t
 }
 
 func (entry *logrusEntry) Panic(v interface{}, stack []byte) {
-	entry.logger.Panic("Request failed")
+	entry.logger.WithError(v.(error)).Panic("Request failed")
 }

@@ -2,7 +2,6 @@ package bot
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
@@ -22,11 +21,11 @@ type manager struct {
 func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
 	app := newApp(m.lcHTTP, m.lcRTM, id)
 	if err := m.apps.Register(app); err != nil {
-		return err
+		return fmt.Errorf("bot: install_app: %w", err)
 	}
 
 	if err := app.FetchBots(ctx); err != nil {
-		return err
+		return fmt.Errorf("bot: install_app: %w", err)
 	}
 
 	log.WithField("license_id", id).Info("Installed application")
@@ -36,14 +35,11 @@ func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
 func (m *manager) UninstallApp(ctx context.Context, id livechat.LicenseID) error {
 	uninstalledApp := m.apps.Unregister(id)
 	if uninstalledApp == nil {
-		return fmt.Errorf("app (license id: %v) is not registered", id)
+		return fmt.Errorf("bot: app (license id: %v) is not registered", id)
 	}
 
 	for _, agent := range uninstalledApp.agents.agents {
 		agent.closeFn()
-		if _, err := m.lcHTTP.DeleteBot(ctx, &web.DeleteBotRequest{ID: agent.ID}); err != nil {
-			log.WithField("agent_id", agent.ID).WithContext(ctx).WithError(err).Error("Cannot remove agent from LiveChat")
-		}
 	}
 
 	log.WithField("license_id", id).Info("Uninstalled application")
@@ -66,21 +62,15 @@ func (m *manager) Destroy(ctx context.Context) {
 }
 
 func (m *manager) JoinChat(ctx context.Context, license livechat.LicenseID, chat livechat.ChatID) error {
-	return errors.New("not implemented yet")
-	// m.mu.Lock()
-	// var app *app
-	// for _, a := range m.apps {
-	// 	if a.licenseID == license {
-	// 		app = a
-	// 		break
-	// 	}
-	// }
-	// m.mu.Unlock()
+	agents := []string{}
+	app, err := m.apps.Find(license)
+	if err != nil {
+		return err
+	}
 
-	// agents := []livechat.AgentID{}
-	// for _, agent := range app.bots {
-	// 	agents = append(agents, agent.ID)
-	// }
+	for _, a := range app.agents.agents {
+		agents = append(agents, string(a.ID))
+	}
 
-	// return nil
+	return m.lcRTM.SendTransferChat(ctx, chat, agents)
 }

@@ -6,9 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/livechat/onboarding/bot/actions"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/rtm"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type agent struct {
@@ -34,22 +35,49 @@ func newAgent(ID livechat.AgentID, conn rtm.LivechatCommunicator) *agent {
 	}
 }
 
-func (a *agent) Start(ctx context.Context) error {
+func (a *agent) Start(ctx context.Context) (stopCause error) {
 	msgHandler, errHandler := a.Conn.Read(ctx)
+	defer func() {
+		log.WithField("agent_id", a.ID).WithError(stopCause).Debug("Stopped agent")
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("bot agent: start action: %w", ctx.Err())
+			stopCause = fmt.Errorf("bot: start action: %w", ctx.Err())
 		case msg := <-msgHandler:
-			var body interface{}
-			if err := json.Unmarshal(msg, &body); err == nil {
-				logrus.WithField("message", body).Debug("Received message")
+			if err := a.HandleMsg(ctx, msg); err != nil {
+				stopCause = err
 			}
 		case err := <-errHandler:
-			return fmt.Errorf("bot agent: start action: %w", err)
+			stopCause = fmt.Errorf("bot: start action: %w", err)
 		case <-a.closeCh:
-			return errors.New("bot agent: start action: agent terminated")
+			stopCause = errors.New("bot: start action: agent terminated")
+		}
+
+		if stopCause != nil {
+			return
 		}
 	}
+}
+
+func (a *agent) HandleMsg(ctx context.Context, msg []byte) error {
+	var body map[string]interface{}
+	if err := json.Unmarshal(msg, &body); err != nil {
+		return fmt.Errorf("bot: cannot unmarshal incoming msg: %w", err)
+	}
+
+	action, ok := body["action"]
+	if !ok {
+		return errors.New("bot: incoming msg does not contain 'action' field")
+	}
+
+	switch action {
+	case "incoming_event":
+		return actions.New(a.Conn).IncomingEvent(ctx, a.ID, msg)
+	default:
+		log.WithField("body", body).Debug("Incoming unknown message")
+	}
+
+	return nil
 }

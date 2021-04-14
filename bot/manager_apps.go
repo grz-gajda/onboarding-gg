@@ -18,7 +18,7 @@ func (a *apps) Register(app *app) error {
 
 	for _, registeredApp := range a.apps {
 		if registeredApp.licenseID == app.licenseID {
-			return fmt.Errorf("app (license id: %v) is already installed", app.licenseID)
+			return fmt.Errorf("bot: app (license id: %v) is already installed", app.licenseID)
 		}
 	}
 
@@ -43,4 +43,16 @@ func (a *apps) Unregister(licenseID livechat.LicenseID) *app {
 
 	a.apps = newApps
 	return uninstalledApp
+}
+
+func (a *apps) Find(licenseID livechat.LicenseID) (*app, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	for _, app := range a.apps {
+		if app.licenseID == licenseID {
+			return app, nil
+		}
+	}
+	return nil, fmt.Errorf("bot: app (license id: %v) is not installed", licenseID)
 }

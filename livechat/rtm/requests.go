@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/livechat/onboarding/livechat"
+	"github.com/sirupsen/logrus"
 )
 
 func (c *livechatClient) SendPing(ctx context.Context) error {
@@ -13,7 +14,7 @@ func (c *livechatClient) SendPing(ctx context.Context) error {
 		"payload": nil,
 	}
 
-	return c.conn.WriteJSON(req)
+	return c.WriteJSON(req)
 }
 
 func (c *livechatClient) SendLogin(ctx context.Context, opts *LoginRequest) error {
@@ -25,22 +26,42 @@ func (c *livechatClient) SendLogin(ctx context.Context, opts *LoginRequest) erro
 		},
 	}
 
-	return c.conn.WriteJSON(req)
+	return c.WriteJSON(req)
 }
 
-func (c *livechatClient) SendTransferChat(ctx context.Context, chatID livechat.ChatID, agents []livechat.AgentID) error {
+func (c *livechatClient) SendEvent(ctx context.Context, chatID livechat.ChatID, agentID livechat.AgentID, msg string) error {
+	req := payload{
+		"action": "send_event",
+		"payload": map[string]interface{}{
+			"chat_id": chatID,
+			"event": map[string]string{
+				"type":       "message",
+				"text":       msg,
+				"recipients": "all",
+			},
+		},
+		"author_id": agentID,
+	}
+
+	logrus.WithField("req", req).Debug("Send event payload")
+
+	return c.WriteJSON(req)
+}
+
+func (c *livechatClient) SendTransferChat(ctx context.Context, chatID livechat.ChatID, agentID []string) error {
 	req := payload{
 		"action": "transfer_chat",
 		"payload": map[string]interface{}{
-			"chat_id": chatID,
+			"id": chatID,
 			"target": map[string]interface{}{
 				"type": "agent",
-				"ids":  agents,
+				"ids":  agentID,
 			},
+			"force": true,
 		},
 	}
 
-	return c.conn.WriteJSON(req)
+	return c.WriteJSON(req)
 }
 
 func (c *livechatClient) Read(ctx context.Context) (<-chan []byte, <-chan error) {
@@ -56,13 +77,13 @@ func (c *livechatClient) Read(ctx context.Context) (<-chan []byte, <-chan error)
 		for {
 			_, incomingMsg, err := c.conn.ReadMessage()
 			if err != nil {
-				errHandler <- err
+				errHandler <- fmt.Errorf("rtm_client: %w", err)
 				return
 			}
 
 			select {
 			case <-ctx.Done():
-				errHandler <- ctx.Err()
+				errHandler <- fmt.Errorf("rtm_client: %w", ctx.Err())
 				return
 			case msgHandler <- incomingMsg:
 			}

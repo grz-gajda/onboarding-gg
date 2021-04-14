@@ -23,7 +23,8 @@ type LivechatCommunicator interface {
 	Login(context.Context) error
 
 	// ACTIONS
-	SendTransferChat(context.Context, livechat.ChatID, []livechat.AgentID) error
+	SendEvent(context.Context, livechat.ChatID, livechat.AgentID, string) error
+	SendTransferChat(context.Context, livechat.ChatID, []string) error
 
 	// READERS
 	Read(context.Context) (<-chan []byte, <-chan error)
@@ -50,25 +51,6 @@ type Action struct {
 	Action string `json:"action"`
 }
 
-type PingResponse struct {
-	Action
-	Success bool   `json:"success,omitempty"`
-	Type    string `json:"type"`
-	Payload struct {
-		Reason string `json:"reason,omitempty"`
-	} `json:"payload,omitempty"`
-}
-
 type LoginRequest struct {
 	Token string
-}
-
-type LoginResponse struct {
-	Action
-	Payload struct {
-		Error struct {
-			Message string `json:"message"`
-			Type    string `json:"type"`
-		} `json:"error,omitempty"`
-	} `json:"payload"`
 }

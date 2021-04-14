@@ -19,7 +19,7 @@ func (a *agents) Register(bot *agent) error {
 
 	for _, agent := range a.agents {
 		if agent.ID == bot.ID {
-			return fmt.Errorf("agent (id: %v) is already registered", bot.ID)
+			return fmt.Errorf("bot: agent (id: %v) is already registered", bot.ID)
 		}
 	}
 
@@ -55,5 +55,5 @@ func (a *agents) FindBy(id livechat.AgentID) (*agent, error) {
 			return agent, nil
 		}
 	}
-	return nil, errors.New("agents: agent cannot be found")
+	return nil, errors.New("bot: agent cannot be found")
 }
