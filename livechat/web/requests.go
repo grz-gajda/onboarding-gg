@@ -35,6 +35,26 @@ func (c *livechatClient) ListBots(ctx context.Context, payload *ListBotsRequest)
 	return body, nil
 }
 
+func (c *livechatClient) TransferChat(ctx context.Context, payload *TransferChatRequest) (*TransferChatResponse, error) {
+	var body TransferChatResponse
+	_, err := c.sendRequest(ctx, transferChatEndpoint, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("transfer_chat action: %w", err)
+	}
+
+	return &body, nil
+}
+
+func (c *livechatClient) SendEvent(ctx context.Context, payload *SendEventRequest) (*SendEventResponse, error) {
+	var body SendEventResponse
+	_, err := c.sendRequest(ctx, sendEventEndpoint, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("send_event action: %w", err)
+	}
+
+	return &body, nil
+}
+
 func (c *livechatClient) RegisterWebhook(ctx context.Context, payload *RegisterWebhookRequest) (*RegisterWebhookResponse, error) {
 	var body RegisterWebhookResponse
 	_, err := c.sendRequest(ctx, registerWebhookEndpoint, payload, &body)
@@ -47,9 +67,29 @@ func (c *livechatClient) RegisterWebhook(ctx context.Context, payload *RegisterW
 
 func (c *livechatClient) UnregisterWebhook(ctx context.Context, payload *UnregisterWebhookRequest) (*UnregisterWebhookResponse, error) {
 	var body UnregisterWebhookResponse
-	_, err := c.sendRequest(ctx, registerWebhookEndpoint, payload, &body)
+	_, err := c.sendRequest(ctx, unregisterWebhookEndpoint, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("unregister_webhook action: %w", err)
+	}
+
+	return &body, nil
+}
+
+func (c *livechatClient) EnableLicenseWebhook(ctx context.Context, payload *EnableLicenseWebhookRequest) (*EnableLicenseWebhookResponse, error) {
+	var body EnableLicenseWebhookResponse
+	_, err := c.sendRequest(ctx, enableLicenseWebhookEndpoint, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("enable_license_webhook action: %w", err)
+	}
+
+	return &body, nil
+}
+
+func (c *livechatClient) DisableLicenseWebhook(ctx context.Context, payload *DisableLicenseWebhookRequest) (*DisableLicenseWebhookResponse, error) {
+	var body DisableLicenseWebhookResponse
+	_, err := c.sendRequest(ctx, disableLicenseWebhookEndpoint, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("disable_license_webhook action: %w", err)
 	}
 
 	return &body, nil

@@ -14,6 +14,11 @@ type Client interface {
 	DialContext(ctx context.Context, urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error)
 }
 
+type Push interface {
+	GetAction() string
+	GetLicenseID() livechat.LicenseID
+}
+
 type LivechatCommunicator interface {
 	// STATE
 	Close() error

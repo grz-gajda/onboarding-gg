@@ -3,18 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/gorilla/websocket"
-	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
-	"github.com/livechat/onboarding/livechat/rtm"
-	"github.com/livechat/onboarding/livechat/web"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,7 +24,6 @@ func main() {
 		log.WithError(err).Panic("Cannot load configuration for app")
 	}
 
-	// TOOLS
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 
 	// GLOBAL CONTEXT
@@ -38,30 +32,19 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// LIVECHAT SERVICES
-	lcHTTP := web.New(httpClient, cfg.URL.HTTP)
-	lcRTM, err := rtm.New(ctx, &websocket.Dialer{HandshakeTimeout: 5 * time.Second}, cfg.URL.WS)
-	if err != nil {
-		log.WithError(err).Panic("Cannot initialize connection to LiveChat")
-	}
+	router := chi.NewRouter()
+	router.Use(middleware.RequestLogger(&logrusFormatter{logger: log.StandardLogger()}))
+	router.Use(middleware.Recoverer)
 
-	if err := lcRTM.Login(ctx); err != nil {
-		log.WithError(err).Panic("Cannot authorize connection to LiveChat")
-	}
+	botManager := selectBotManager(ctx, cfg, &appMethodConfig{
+		httpClient: httpClient,
+		router:     router,
+	})
 
-	botManager := bot.New(lcHTTP, lcRTM)
-
-	// BACKGROUND
-	go lcRTM.Ping(ctx)
 	Shutdown(ctx, cancel, func() {
 		httpClient.CloseIdleConnections()
 		botManager.Destroy(ctx)
 	})
-
-	// HTTP
-	router := chi.NewRouter()
-	router.Use(middleware.RequestLogger(&logrusFormatter{logger: log.StandardLogger()}))
-	router.Use(middleware.Recoverer)
 
 	router.Post("/webhooks/install", func(w http.ResponseWriter, r *http.Request) {
 		var payload webhooksPayload
@@ -88,29 +71,21 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	router.Post("/webhooks/incoming_chat", func(w http.ResponseWriter, r *http.Request) {
-		var payload incomingChatPayload
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			sendError(w, err)
-			return
-		}
-
-		if payload.Action != "incoming_chat" {
-			sendError(w, errors.New("received unknown action"))
-		}
-
-		if err := botManager.JoinChat(ctx, payload.LicenseID, payload.Payload.Chat.ID); err != nil {
-			sendError(w, err)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
-
 	log.Print("Starting application")
 	if err := http.ListenAndServe(":8081", router); err != nil {
 		log.Panicf("Something happened during HTTP request: %s", err)
 	}
+}
+
+func selectBotManager(ctx context.Context, cfg *config, opts *appMethodConfig) BotManager {
+	switch cfg.SelectMethod() {
+	case webhooksMethod:
+		return StartWebhooks(ctx, cfg, opts)
+	case rtmMethod:
+		return StartRTM(ctx, cfg, opts)
+	}
+
+	return StartWebhooks(ctx, cfg, opts)
 }
 
 func sendError(w http.ResponseWriter, err error) {
@@ -136,4 +111,9 @@ type incomingChatPayload struct {
 			ID livechat.ChatID `json:"id"`
 		} `json:"chat"`
 	} `json:"payload"`
+}
+
+type appMethodConfig struct {
+	httpClient *http.Client
+	router     *chi.Mux
 }

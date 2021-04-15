@@ -12,8 +12,13 @@ const (
 	deleteBotEndpoint = "/configuration/action/delete_bot"
 	listBotsEndpoint  = "/configuration/action/list_bots"
 
-	registerWebhookEndpoint   = "/configuration/action/register_webhook"
-	unregisterWebhookEndpoint = "/configuration/action/unregister_webhook"
+	transferChatEndpoint = "/agent/action/transfer_chat"
+	sendEventEndpoint    = "/agent/action/send_event"
+
+	registerWebhookEndpoint       = "/configuration/action/register_webhook"
+	unregisterWebhookEndpoint     = "/configuration/action/unregister_webhook"
+	enableLicenseWebhookEndpoint  = "/configuration/action/enable_license_webhooks"
+	disableLicenseWebhookEndpoint = "/configuration/action/disable_license_webhooks"
 )
 
 //go:generate mockery --name Client
@@ -26,8 +31,13 @@ type LivechatRequests interface {
 	DeleteBot(context.Context, *DeleteBotRequest) (*DeleteBotResponse, error)
 	ListBots(context.Context, *ListBotsRequest) ([]*ListBotResponse, error)
 
+	TransferChat(context.Context, *TransferChatRequest) (*TransferChatResponse, error)
+	SendEvent(context.Context, *SendEventRequest) (*SendEventResponse, error)
+
 	RegisterWebhook(context.Context, *RegisterWebhookRequest) (*RegisterWebhookResponse, error)
 	UnregisterWebhook(context.Context, *UnregisterWebhookRequest) (*UnregisterWebhookResponse, error)
+	EnableLicenseWebhook(context.Context, *EnableLicenseWebhookRequest) (*EnableLicenseWebhookResponse, error)
+	DisableLicenseWebhook(context.Context, *DisableLicenseWebhookRequest) (*DisableLicenseWebhookResponse, error)
 }
 
 func New(client Client, url string) LivechatRequests {
@@ -79,3 +89,40 @@ type UnregisterWebhookRequest struct {
 }
 
 type UnregisterWebhookResponse struct{}
+
+type TransferChatRequest struct {
+	ID     livechat.ChatID `json:"id"`
+	Target struct {
+		Type string             `json:"type"`
+		IDs  []livechat.AgentID `json:"ids"`
+	} `json:"target"`
+}
+
+type TransferChatResponse struct{}
+
+type Event struct {
+	Text       string `json:"text"`
+	Type       string `json:"type"`
+	Recipients string `json:"recipients"`
+}
+
+type SendEventRequest struct {
+	ChatID livechat.ChatID `json:"chat_id"`
+	Event  Event           `json:"event"`
+}
+
+type SendEventResponse struct {
+	EventID string `json:"event_id"`
+}
+
+type EnableLicenseWebhookRequest struct {
+	ClientID livechat.ClientID `json:"owner_client_id,omitempty"`
+}
+
+type EnableLicenseWebhookResponse struct{}
+
+type DisableLicenseWebhookRequest struct {
+	ClientID livechat.ClientID `json:"owner_client_id,omitempty"`
+}
+
+type DisableLicenseWebhookResponse struct{}
