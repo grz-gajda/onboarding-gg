@@ -19,6 +19,8 @@ const (
 	unregisterWebhookEndpoint     = "/configuration/action/unregister_webhook"
 	enableLicenseWebhookEndpoint  = "/configuration/action/enable_license_webhooks"
 	disableLicenseWebhookEndpoint = "/configuration/action/disable_license_webhooks"
+
+	setRoutingStatusEndpoint = "/agent/action/set_routing_status"
 )
 
 //go:generate mockery --name Client
@@ -38,6 +40,8 @@ type LivechatRequests interface {
 	UnregisterWebhook(context.Context, *UnregisterWebhookRequest) (*UnregisterWebhookResponse, error)
 	EnableLicenseWebhook(context.Context, *EnableLicenseWebhookRequest) (*EnableLicenseWebhookResponse, error)
 	DisableLicenseWebhook(context.Context, *DisableLicenseWebhookRequest) (*DisableLicenseWebhookResponse, error)
+
+	SetRoutingStatus(context.Context, *SetRoutingStatusRequest) (*SetRoutingStatusResponse, error)
 }
 
 func New(client Client, url string) LivechatRequests {
@@ -96,6 +100,7 @@ type TransferChatRequest struct {
 		Type string             `json:"type"`
 		IDs  []livechat.AgentID `json:"ids"`
 	} `json:"target"`
+	Force bool `json:"force,omitempty"`
 }
 
 type TransferChatResponse struct{}
@@ -126,3 +131,10 @@ type DisableLicenseWebhookRequest struct {
 }
 
 type DisableLicenseWebhookResponse struct{}
+
+type SetRoutingStatusRequest struct {
+	Status  string           `json:"status"`
+	AgentID livechat.AgentID `json:"agent_id"`
+}
+
+type SetRoutingStatusResponse struct{}

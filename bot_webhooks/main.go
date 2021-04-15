@@ -18,12 +18,18 @@ type Manager interface {
 	// Destroy does everything what UninstallApp but for every license.
 	Destroy(context.Context)
 
-	Redirect(context.Context, rtm.Push) error
+	Redirect(context.Context, rtm.Push, ...RedirectData) error
 }
 
-func New(lcHTTP web.LivechatRequests) Manager {
+type RedirectData struct {
+	AppAuthorID string
+}
+
+func New(lcHTTP web.LivechatRequests, localURL string) Manager {
 	return &manager{
-		lcHTTP: lcHTTP,
-		apps:   &apps{},
+		lcHTTP:     lcHTTP,
+		localURL:   localURL,
+		apps:       &apps{},
+		botFactory: newBotFactory(lcHTTP),
 	}
 }

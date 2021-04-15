@@ -94,3 +94,13 @@ func (c *livechatClient) DisableLicenseWebhook(ctx context.Context, payload *Dis
 
 	return &body, nil
 }
+
+func (c *livechatClient) SetRoutingStatus(ctx context.Context, payload *SetRoutingStatusRequest) (*SetRoutingStatusResponse, error) {
+	var body SetRoutingStatusResponse
+	_, err := c.sendRequest(ctx, setRoutingStatusEndpoint, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("set_routing_status action: %w", err)
+	}
+
+	return &body, nil
+}

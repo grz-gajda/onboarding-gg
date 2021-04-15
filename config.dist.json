@@ -5,10 +5,12 @@
     "password": "auth.password"
   },
   "credentials": {
-    "client_id": "credentials.client_id"
+    "client_id": "credentials.client_id",
+    "author_id": "credentials.author_id"
   },
   "url": {
     "http": "url.http",
-    "ws": "ws.http"
+    "ws": "ws.http",
+    "local": "http://localhost:8081"
   }
 }

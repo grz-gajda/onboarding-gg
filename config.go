@@ -37,11 +37,13 @@ type authConfig struct {
 
 type credentials struct {
 	ClientID livechat.ClientID `json:"client_id" validate:"required"`
+	AuthorID string            `json:"author_id" validate:"required"`
 }
 
 type urlConfig struct {
-	HTTP string `json:"http" validate:"required"`
-	WS   string `json:"ws" validate:"required"`
+	HTTP  string `json:"http" validate:"required"`
+	WS    string `json:"ws" validate:"required"`
+	Local string `json:"local" validate:"required"`
 }
 
 func LoadConfig(reader io.Reader) (*config, error) {

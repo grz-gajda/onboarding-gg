@@ -39,18 +39,25 @@ func (a *app) RegisterAction(ctx context.Context, action string, opts *registerA
 		return fmt.Errorf("bot: register_action: %w", err)
 	}
 
+	url := "http://localhost:8081"
+	if opts.CustomURL != "" {
+		url = opts.CustomURL
+	}
+
 	payload := &web.RegisterWebhookRequest{
 		ClientID:  clientID,
 		SecretKey: "random secret key",
-		URL:       fmt.Sprintf("%s/%s", "http://localhost:8081/webhooks", action),
+		URL:       fmt.Sprintf("%s/webhooks/%s", url, action),
 		Action:    action,
-		Type:      "bot",
+		Type:      "license",
 	}
 
 	webhookResponse, err := a.lcHTTP.RegisterWebhook(ctx, payload)
 	if err != nil {
 		return fmt.Errorf("bot: register_action: %w", err)
 	}
+
+	log.WithField("action", action).WithField("url", fmt.Sprintf("%s/webhooks/%s", url, action)).Debug("Webhook registered")
 
 	a.webhooks[action] = &webhookDetails{id: webhookResponse.ID}
 	return nil
@@ -63,6 +70,14 @@ func (a *app) UnregisterActions(ctx context.Context) error {
 	}
 
 	wg := sync.WaitGroup{}
+
+	for _, agent := range a.agents.agents {
+		wg.Add(1)
+		go func(agentID livechat.AgentID) {
+			defer wg.Done()
+			newBotFactory(a.lcHTTP).disableBot(ctx, agentID)
+		}(agent.ID)
+	}
 
 	for actionName, details := range a.webhooks {
 		wg.Add(1)
@@ -87,7 +102,7 @@ func (a *app) UnregisterActions(ctx context.Context) error {
 	return nil
 }
 
-func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat) error {
+func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat, data ...RedirectData) error {
 	log.WithField("agents", a.agents).Debug("TransferChat action")
 	agent, err := a.agents.FindByChatExclude(msg.Payload.Chat.ID)
 	if err != nil {
@@ -103,6 +118,7 @@ func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat) error
 			Type: "agent",
 			IDs:  []livechat.AgentID{agent.ID},
 		},
+		Force: true,
 	})
 
 	if err != nil {
@@ -115,58 +131,40 @@ func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat) error
 	return nil
 }
 
-func (a *app) CreateBot(ctx context.Context) error {
-	clientID, err := auth.GetClientID(ctx)
-	if err != nil {
-		return fmt.Errorf("bot: create bot: %w", err)
-	}
-
-	response, err := a.lcHTTP.CreateBot(ctx, &web.CreateBotRequest{
-		Name:     "OnboardingGG",
-		ClientID: clientID,
-	})
-	if err != nil {
-		return fmt.Errorf("bot: create_bot: %w", err)
-	}
-
-	agent := newAgent(response.ID, a.lcHTTP)
-	if err := a.agents.Register(agent); err != nil {
-		return fmt.Errorf("bot: create_bot: %w", err)
-	}
-
-	log.WithField("license_id", a.licenseID).WithField("amount", 1).Info("Bot has been registered")
-	return nil
-}
-
-func (a *app) FetchBots(ctx context.Context) error {
-	botsResponse, err := a.lcHTTP.ListBots(ctx, &web.ListBotsRequest{All: true})
-	if err != nil {
-		return fmt.Errorf("bot: fetch_bots: %w", err)
-	}
-	if len(botsResponse) == 0 {
-		if err := a.CreateBot(ctx); err != nil {
-			return fmt.Errorf("bot: fetch_bots: %w", err)
-		}
+func (a *app) IncomingEvent(ctx context.Context, msg *rtm.PushIncomingMessage, data ...RedirectData) error {
+	log.WithField("agents", a.agents).WithField("chat_id", msg.Payload.ChatID).Debug("IncomingEvent action")
+	if msg.Payload.Event.Type != "message" {
 		return nil
 	}
 
-	for _, botID := range botsResponse {
-		agent := newAgent(botID.ID, a.lcHTTP)
-		if err := a.agents.Register(agent); err != nil {
-			return fmt.Errorf("bot: fetch_bots: %w", err)
-		}
+	log.WithField("data", data).WithField("author_id", msg.Payload.Event.AuthorID).Debug("Comparing 'author_id'`s of messages")
+	if len(data) > 0 && data[0].AppAuthorID == msg.Payload.Event.AuthorID {
+		return nil
 	}
-
-	log.WithField("license_id", a.licenseID).WithField("amount", len(botsResponse)).Infof("Bot has been registered")
-	return nil
-}
-
-func (a *app) IncomingEvent(ctx context.Context, msg *rtm.PushIncomingMessage) error {
-	log.WithField("agents", a.agents).WithField("chat_id", msg.Payload.ChatID).Debug("IncomingEvent action")
 
 	agent, err := a.agents.FindByChat(msg.Payload.ChatID)
 	if err != nil {
-		return fmt.Errorf("bot: incoming_event action: %w", err)
+		err := a.TransferChat(ctx, &rtm.PushIncomingChat{
+			Action:    "incoming_chat",
+			LicenseID: msg.LicenseID,
+			Payload: struct {
+				Chat struct {
+					ID livechat.ChatID "json:\"id\""
+				} "json:\"chat\""
+			}{
+				Chat: struct {
+					ID livechat.ChatID "json:\"id\""
+				}{
+					ID: msg.Payload.ChatID,
+				},
+			},
+		})
+
+		if err != nil {
+			return fmt.Errorf("bot: incoming_event action: %w", err)
+		}
+
+		return a.IncomingEvent(ctx, msg)
 	}
 
 	ctx = auth.WithAuthorID(ctx, agent.ID)

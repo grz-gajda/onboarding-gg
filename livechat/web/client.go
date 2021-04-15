@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/livechat/onboarding/livechat/auth"
+	"github.com/sirupsen/logrus"
 )
 
 type livechatClient struct {
@@ -58,6 +59,7 @@ func (c *livechatClient) sendRequest(ctx context.Context, endpoint string, paylo
 		return nil, fmt.Errorf("http_client: %w", err)
 	}
 	if res.StatusCode != http.StatusOK {
+		logrus.WithField("url", endpoint).WithField("status_code", res.StatusCode).Debug("Received invalid response from WEB API LiveChat")
 		return nil, readErrorMessage(res.Body)
 	}
 
@@ -72,6 +74,10 @@ func readErrorMessage(w io.Reader) error {
 	if err := json.NewDecoder(w).Decode(&body); err != nil {
 		return fmt.Errorf("http_client: cannot decode response: %w", err)
 	}
+
+	defer func() {
+		logrus.WithField("type", fmt.Sprintf("http_type: %s", body.ErrorMessage.Type)).Warn(body.ErrorMessage.Message)
+	}()
 
 	return fmt.Errorf("%s (type %s)", body.ErrorMessage.Message, body.ErrorMessage.Type)
 }

@@ -14,9 +14,11 @@ import (
 )
 
 type manager struct {
-	lcHTTP web.LivechatRequests
+	lcHTTP   web.LivechatRequests
+	localURL string
 
-	apps *apps
+	apps       *apps
+	botFactory *botFactory
 }
 
 func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
@@ -28,15 +30,19 @@ func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
 		return err
 	}
 
-	if err := app.FetchBots(ctx); err != nil {
+	bots, err := m.botFactory.Initialize(ctx)
+	if err != nil {
 		return err
 	}
+	for _, bot := range bots {
+		app.agents.Register(bot)
+	}
 
-	if err := app.RegisterAction(ctx, "incoming_chat", &registerActionOptions{}); err != nil {
+	if err := app.RegisterAction(ctx, "incoming_chat", &registerActionOptions{CustomURL: m.localURL}); err != nil {
 		log.WithField("license_id", id).WithError(err).Error("Cannot register 'incoming_chat' action")
 		return err
 	}
-	if err := app.RegisterAction(ctx, "incoming_event", &registerActionOptions{}); err != nil {
+	if err := app.RegisterAction(ctx, "incoming_event", &registerActionOptions{CustomURL: m.localURL}); err != nil {
 		log.WithField("license_id", id).WithError(err).Error("Cannot register 'incoming_event' action")
 		return err
 	}
@@ -81,7 +87,7 @@ func (m *manager) Destroy(ctx context.Context) {
 	wg.Wait()
 }
 
-func (m *manager) Redirect(ctx context.Context, rawMsg rtm.Push) error {
+func (m *manager) Redirect(ctx context.Context, rawMsg rtm.Push, payload ...RedirectData) error {
 	app, err := m.apps.Find(rawMsg.GetLicenseID())
 	if err != nil {
 		return fmt.Errorf("bot: redirect_action: %w", err)
@@ -90,10 +96,10 @@ func (m *manager) Redirect(ctx context.Context, rawMsg rtm.Push) error {
 	switch msg := rawMsg.(type) {
 	case *rtm.PushIncomingMessage:
 		log.WithField("event", msg).Debug("Received *PushIncomingMessage")
-		return app.IncomingEvent(ctx, msg)
+		return app.IncomingEvent(ctx, msg, payload...)
 	case *rtm.PushIncomingChat:
 		log.WithField("event", msg).Debug("Received *PushIncomingChat")
-		return app.TransferChat(ctx, msg)
+		return app.TransferChat(ctx, msg, payload...)
 	}
 
 	return errors.New("bot: received webhook with unknown message")

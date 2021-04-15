@@ -46,6 +46,10 @@ func main() {
 		botManager.Destroy(ctx)
 	})
 
+	router.Get("/webhooks/install", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	router.Post("/webhooks/install", func(w http.ResponseWriter, r *http.Request) {
 		var payload webhooksPayload
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -89,7 +93,11 @@ func selectBotManager(ctx context.Context, cfg *config, opts *appMethodConfig) B
 }
 
 func sendError(w http.ResponseWriter, err error) {
-	w.WriteHeader(http.StatusBadRequest)
+	if err != nil {
+		log.WithError(err).Error("Outcoming invalid HTTP response")
+	}
+
+	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": err.Error(),

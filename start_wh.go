@@ -13,19 +13,23 @@ import (
 func StartWebhooks(ctx context.Context, cfg *config, config *appMethodConfig) BotManager {
 	// LIVECHAT SERVICES
 	lcHTTP := web.New(config.httpClient, cfg.URL.HTTP)
-	bot := bot_webhooks.New(lcHTTP)
+	bot := bot_webhooks.New(lcHTTP, cfg.URL.Local)
 
-	config.router.Post("/webhooks/incoming_event", handleIncomingMsg(ctx, bot, func() rtm.Push {
+	config.router.Post("/webhooks/incoming_event", handleIncomingMsg(ctx, bot, cfg, func() rtm.Push {
 		return &rtm.PushIncomingMessage{}
 	}))
-	config.router.Post("/webhooks/incoming_chat", handleIncomingMsg(ctx, bot, func() rtm.Push {
+	config.router.Post("/webhooks/incoming_chat", handleIncomingMsg(ctx, bot, cfg, func() rtm.Push {
 		return &rtm.PushIncomingChat{}
 	}))
 
 	return bot
 }
 
-func handleIncomingMsg(ctx context.Context, bot bot_webhooks.Manager, body func() rtm.Push) http.HandlerFunc {
+func handleIncomingMsg(ctx context.Context, bot bot_webhooks.Manager, cfg *config, body func() rtm.Push) http.HandlerFunc {
+	additionalData := bot_webhooks.RedirectData{
+		AppAuthorID: cfg.Credentials.AuthorID,
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyMsg := body()
 		if err := json.NewDecoder(r.Body).Decode(&bodyMsg); err != nil {
@@ -33,7 +37,7 @@ func handleIncomingMsg(ctx context.Context, bot bot_webhooks.Manager, body func(
 			return
 		}
 
-		if err := bot.Redirect(ctx, bodyMsg); err != nil {
+		if err := bot.Redirect(ctx, bodyMsg, additionalData); err != nil {
 			sendError(w, err)
 			return
 		}
