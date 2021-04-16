@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
 	log "github.com/sirupsen/logrus"
@@ -81,7 +82,7 @@ func main() {
 	}
 }
 
-func selectBotManager(ctx context.Context, cfg *config, opts *appMethodConfig) BotManager {
+func selectBotManager(ctx context.Context, cfg *config, opts *appMethodConfig) bot.BotManager {
 	switch cfg.SelectMethod() {
 	case webhooksMethod:
 		return StartWebhooks(ctx, cfg, opts)

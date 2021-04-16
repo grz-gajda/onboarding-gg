@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/bot/bot_webhooks"
 	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
 )
 
-func StartWebhooks(ctx context.Context, cfg *config, config *appMethodConfig) BotManager {
+func StartWebhooks(ctx context.Context, cfg *config, config *appMethodConfig) bot.BotManager {
 	// LIVECHAT SERVICES
 	lcHTTP := web.New(config.httpClient, cfg.URL.HTTP)
 	bot := bot_webhooks.New(lcHTTP, cfg.URL.Local)

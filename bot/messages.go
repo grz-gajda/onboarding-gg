@@ -1,4 +1,4 @@
-package messages
+package bot
 
 func Talk(msg string) string {
 	switch msg {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/livechat/onboarding/bot/messages"
+	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
 	"github.com/livechat/onboarding/livechat/rtm"
@@ -139,7 +139,7 @@ func (a *app) IncomingEvent(ctx context.Context, msg *rtm.PushIncomingMessage, d
 	_, err = a.lcHTTP.SendEvent(auth.WithAuthorID(ctx, agent.ID), &web.SendEventRequest{
 		ChatID: msg.Payload.ChatID,
 		Event: web.Event{
-			Text:       messages.Talk(msg.Payload.Event.Text),
+			Text:       bot.Talk(msg.Payload.Event.Text),
 			Type:       "message",
 			Recipients: "all",
 		},

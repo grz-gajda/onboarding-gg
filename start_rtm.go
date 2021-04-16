@@ -5,13 +5,14 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/bot/bot_rtm"
 	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
 	log "github.com/sirupsen/logrus"
 )
 
-func StartRTM(ctx context.Context, cfg *config, config *appMethodConfig) BotManager {
+func StartRTM(ctx context.Context, cfg *config, config *appMethodConfig) bot.BotManager {
 	// LIVECHAT SERVICES
 	lcHTTP := web.New(config.httpClient, cfg.URL.HTTP)
 	lcRTM, err := rtm.New(ctx, &websocket.Dialer{HandshakeTimeout: 5 * time.Second}, cfg.URL.WS)
