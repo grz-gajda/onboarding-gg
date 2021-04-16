@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/livechat/onboarding/bot/messages"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
 	"github.com/livechat/onboarding/livechat/rtm"
@@ -138,13 +139,16 @@ func (a *app) IncomingEvent(ctx context.Context, msg *rtm.PushIncomingMessage, d
 	_, err = a.lcHTTP.SendEvent(auth.WithAuthorID(ctx, agent.ID), &web.SendEventRequest{
 		ChatID: msg.Payload.ChatID,
 		Event: web.Event{
-			Text:       "Lorem ipsum dolor sit amet",
+			Text:       messages.Talk(msg.Payload.Event.Text),
 			Type:       "message",
 			Recipients: "all",
 		},
 	})
 
-	return fmt.Errorf("bot: incoming_event action: %w", err)
+	if err != nil {
+		return fmt.Errorf("bot: incoming_event action: %w", err)
+	}
+	return nil
 }
 
 func buildTransferChatMessage(chatID livechat.ChatID, agentID livechat.AgentID) *web.TransferChatRequest {

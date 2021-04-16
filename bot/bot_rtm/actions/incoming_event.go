@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/livechat/onboarding/bot/messages"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/rtm"
 	log "github.com/sirupsen/logrus"
@@ -22,10 +23,5 @@ func (a *actions) IncomingEvent(ctx context.Context, agentID livechat.AgentID, m
 		return nil
 	}
 
-	switch payload.Payload.Event.Text {
-	case "Hello":
-		return a.lcRTM.SendEvent(ctx, payload.Payload.ChatID, agentID, "World")
-	}
-
-	return nil
+	return a.lcRTM.SendEvent(ctx, payload.Payload.ChatID, agentID, messages.Talk(payload.Payload.Event.Text))
 }

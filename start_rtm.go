@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/livechat/onboarding/bot_rtm"
+	"github.com/livechat/onboarding/bot/bot_rtm"
 	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
 	log "github.com/sirupsen/logrus"

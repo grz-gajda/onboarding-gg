@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/livechat/onboarding/bot_webhooks"
+	"github.com/livechat/onboarding/bot/bot_webhooks"
 	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
 )
