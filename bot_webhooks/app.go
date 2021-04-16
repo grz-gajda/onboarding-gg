@@ -18,48 +18,48 @@ type app struct {
 	licenseID livechat.LicenseID
 	agents    *agents
 	webhooks  map[string]*webhookDetails
+	localURL  string
 }
 
 type webhookDetails struct {
 	id string
 }
 
-func newApp(lcHTTP web.LivechatRequests, id livechat.LicenseID) *app {
+func newApp(lcHTTP web.LivechatRequests, id livechat.LicenseID, localURL string) *app {
 	return &app{
 		lcHTTP:    lcHTTP,
 		licenseID: id,
 		agents:    &agents{},
 		webhooks:  make(map[string]*webhookDetails),
+		localURL:  localURL,
 	}
 }
 
-func (a *app) RegisterAction(ctx context.Context, action string, opts *registerActionOptions) error {
+func (a *app) RegisterAction(ctx context.Context, actions ...string) error {
 	clientID, err := auth.GetClientID(ctx)
 	if err != nil {
 		return fmt.Errorf("bot: register_action: %w", err)
 	}
 
-	url := "http://localhost:8081"
-	if opts.CustomURL != "" {
-		url = opts.CustomURL
+	for _, action := range actions {
+		payload := &web.RegisterWebhookRequest{
+			ClientID:  clientID,
+			SecretKey: "random secret key",
+			URL:       fmt.Sprintf("%s/webhooks/%s", a.localURL, action),
+			Action:    action,
+			Type:      "license",
+		}
+
+		webhookResponse, err := a.lcHTTP.RegisterWebhook(ctx, payload)
+		if err != nil {
+			return fmt.Errorf("bot: register_action: %w", err)
+		}
+
+		log.WithField("action", action).WithField("url", fmt.Sprintf("%s/webhooks/%s", a.localURL, action)).Debug("Webhook registered")
+
+		a.webhooks[action] = &webhookDetails{id: webhookResponse.ID}
 	}
 
-	payload := &web.RegisterWebhookRequest{
-		ClientID:  clientID,
-		SecretKey: "random secret key",
-		URL:       fmt.Sprintf("%s/webhooks/%s", url, action),
-		Action:    action,
-		Type:      "license",
-	}
-
-	webhookResponse, err := a.lcHTTP.RegisterWebhook(ctx, payload)
-	if err != nil {
-		return fmt.Errorf("bot: register_action: %w", err)
-	}
-
-	log.WithField("action", action).WithField("url", fmt.Sprintf("%s/webhooks/%s", url, action)).Debug("Webhook registered")
-
-	a.webhooks[action] = &webhookDetails{id: webhookResponse.ID}
 	return nil
 }
 
@@ -75,7 +75,9 @@ func (a *app) UnregisterActions(ctx context.Context) error {
 		wg.Add(1)
 		go func(agentID livechat.AgentID) {
 			defer wg.Done()
-			newBotFactory(a.lcHTTP).disableBot(ctx, agentID)
+			if err := newBotFactory(a.lcHTTP).disableBot(ctx, agentID); err == nil {
+				log.WithField("license_id", a.licenseID).Debug("Bots are offline")
+			}
 		}(agent.ID)
 	}
 
@@ -103,28 +105,13 @@ func (a *app) UnregisterActions(ctx context.Context) error {
 }
 
 func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat, data ...RedirectData) error {
-	log.WithField("agents", a.agents).Debug("TransferChat action")
 	agent, err := a.agents.FindByChatExclude(msg.Payload.Chat.ID)
 	if err != nil {
 		return fmt.Errorf("bot: transfer_chat action: %w", err)
 	}
 
-	_, err = a.lcHTTP.TransferChat(ctx, &web.TransferChatRequest{
-		ID: msg.Payload.Chat.ID,
-		Target: struct {
-			Type string             "json:\"type\""
-			IDs  []livechat.AgentID "json:\"ids\""
-		}{
-			Type: "agent",
-			IDs:  []livechat.AgentID{agent.ID},
-		},
-		Force: true,
-	})
-
-	if err != nil {
-		if !strings.Contains(err.Error(), "One or more of requested agents are already present in the chat") {
-			return fmt.Errorf("bot: transfer_chat action: %w", err)
-		}
+	if _, err = a.lcHTTP.TransferChat(ctx, buildTransferChatMessage(msg.Payload.Chat.ID, agent.ID)); !isTransferChatErrorOk(err) {
+		return fmt.Errorf("bot: transfer_chat action: %w", err)
 	}
 
 	agent.chats = append(agent.chats, msg.Payload.Chat.ID)
@@ -132,44 +119,23 @@ func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat, data 
 }
 
 func (a *app) IncomingEvent(ctx context.Context, msg *rtm.PushIncomingMessage, data ...RedirectData) error {
-	log.WithField("agents", a.agents).WithField("chat_id", msg.Payload.ChatID).Debug("IncomingEvent action")
 	if msg.Payload.Event.Type != "message" {
 		return nil
 	}
 
-	log.WithField("data", data).WithField("author_id", msg.Payload.Event.AuthorID).Debug("Comparing 'author_id'`s of messages")
 	if len(data) > 0 && data[0].AppAuthorID == msg.Payload.Event.AuthorID {
 		return nil
 	}
 
 	agent, err := a.agents.FindByChat(msg.Payload.ChatID)
 	if err != nil {
-		err := a.TransferChat(ctx, &rtm.PushIncomingChat{
-			Action:    "incoming_chat",
-			LicenseID: msg.LicenseID,
-			Payload: struct {
-				Chat struct {
-					ID livechat.ChatID "json:\"id\""
-				} "json:\"chat\""
-			}{
-				Chat: struct {
-					ID livechat.ChatID "json:\"id\""
-				}{
-					ID: msg.Payload.ChatID,
-				},
-			},
-		})
-
-		if err != nil {
+		if err := a.TransferChat(ctx, mapIncomingEventIntoTransferChat(msg)); err != nil {
 			return fmt.Errorf("bot: incoming_event action: %w", err)
 		}
-
 		return a.IncomingEvent(ctx, msg)
 	}
 
-	ctx = auth.WithAuthorID(ctx, agent.ID)
-
-	_, err = a.lcHTTP.SendEvent(ctx, &web.SendEventRequest{
+	_, err = a.lcHTTP.SendEvent(auth.WithAuthorID(ctx, agent.ID), &web.SendEventRequest{
 		ChatID: msg.Payload.ChatID,
 		Event: web.Event{
 			Text:       "Lorem ipsum dolor sit amet",
@@ -181,6 +147,38 @@ func (a *app) IncomingEvent(ctx context.Context, msg *rtm.PushIncomingMessage, d
 	return fmt.Errorf("bot: incoming_event action: %w", err)
 }
 
-type registerActionOptions struct {
-	CustomURL string
+func buildTransferChatMessage(chatID livechat.ChatID, agentID livechat.AgentID) *web.TransferChatRequest {
+	return &web.TransferChatRequest{
+		ID: chatID,
+		Target: struct {
+			Type string             "json:\"type\""
+			IDs  []livechat.AgentID "json:\"ids\""
+		}{
+			Type: "agent",
+			IDs:  []livechat.AgentID{agentID},
+		},
+		Force: true,
+	}
+}
+
+func mapIncomingEventIntoTransferChat(msg *rtm.PushIncomingMessage) *rtm.PushIncomingChat {
+	return &rtm.PushIncomingChat{
+		Action:    "incoming_chat",
+		LicenseID: msg.LicenseID,
+		Payload: struct {
+			Chat struct {
+				ID livechat.ChatID "json:\"id\""
+			} "json:\"chat\""
+		}{
+			Chat: struct {
+				ID livechat.ChatID "json:\"id\""
+			}{
+				ID: msg.Payload.ChatID,
+			},
+		},
+	}
+}
+
+func isTransferChatErrorOk(err error) bool {
+	return err == nil || strings.Contains(err.Error(), "One or more of requested agents are already present in the chat")
 }

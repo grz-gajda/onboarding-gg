@@ -22,7 +22,7 @@ type manager struct {
 }
 
 func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
-	app := newApp(m.lcHTTP, id)
+	app := newApp(m.lcHTTP, id, m.localURL)
 	m.apps.Register(app)
 
 	clientID, err := auth.GetClientID(ctx)
@@ -38,12 +38,8 @@ func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
 		app.agents.Register(bot)
 	}
 
-	if err := app.RegisterAction(ctx, "incoming_chat", &registerActionOptions{CustomURL: m.localURL}); err != nil {
+	if err := app.RegisterAction(ctx, "incoming_chat", "incoming_event"); err != nil {
 		log.WithField("license_id", id).WithError(err).Error("Cannot register 'incoming_chat' action")
-		return err
-	}
-	if err := app.RegisterAction(ctx, "incoming_event", &registerActionOptions{CustomURL: m.localURL}); err != nil {
-		log.WithField("license_id", id).WithError(err).Error("Cannot register 'incoming_event' action")
 		return err
 	}
 	if _, err := app.lcHTTP.EnableLicenseWebhook(ctx, &web.EnableLicenseWebhookRequest{ClientID: clientID}); err != nil {
@@ -95,10 +91,10 @@ func (m *manager) Redirect(ctx context.Context, rawMsg rtm.Push, payload ...Redi
 
 	switch msg := rawMsg.(type) {
 	case *rtm.PushIncomingMessage:
-		log.WithField("event", msg).Debug("Received *PushIncomingMessage")
+		log.Debug("Received *PushIncomingMessage")
 		return app.IncomingEvent(ctx, msg, payload...)
 	case *rtm.PushIncomingChat:
-		log.WithField("event", msg).Debug("Received *PushIncomingChat")
+		log.Debug("Received *PushIncomingChat")
 		return app.TransferChat(ctx, msg, payload...)
 	}
 
