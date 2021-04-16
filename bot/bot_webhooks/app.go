@@ -53,6 +53,7 @@ func (a *app) RegisterAction(ctx context.Context, actions ...string) error {
 
 		webhookResponse, err := a.lcHTTP.RegisterWebhook(ctx, payload)
 		if err != nil {
+			log.WithField("action", action).WithError(err).Error("Something went wrong with webhook's registration")
 			return fmt.Errorf("bot: register_action: %w", err)
 		}
 

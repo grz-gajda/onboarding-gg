@@ -59,7 +59,7 @@ func (f *botFactory) createBot(ctx context.Context) (*agent, error) {
 	}
 
 	response, err := f.lcHTTP.CreateBot(ctx, &web.CreateBotRequest{
-		Name:     "OnboardingGG",
+		Name:     "OnboardingGG (bot created by app)",
 		ClientID: clientID,
 	})
 	if err != nil {

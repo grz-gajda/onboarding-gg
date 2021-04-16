@@ -28,6 +28,10 @@ func (c *livechatClient) sendRequest(ctx context.Context, endpoint string, paylo
 	var err error
 	var req *http.Request
 
+	defer func() {
+		logrus.WithError(err).WithField("endpoint", endpoint).Debug("Sending HTTP request")
+	}()
+
 	jsonBody := []byte("{}")
 	if payload != nil {
 		jsonBody, err = json.Marshal(payload)
