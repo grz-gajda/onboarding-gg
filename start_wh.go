@@ -7,30 +7,26 @@ import (
 
 	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/bot/bot_webhooks"
-	"github.com/livechat/onboarding/livechat/rtm"
+	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/web"
 )
 
 func StartWebhooks(ctx context.Context, cfg *config, config *appMethodConfig) bot.BotManager {
 	// LIVECHAT SERVICES
 	lcHTTP := web.New(config.httpClient, cfg.URL.HTTP)
-	bot := bot_webhooks.New(lcHTTP, cfg.URL.Local)
+	bot := bot_webhooks.New(lcHTTP, cfg.URL.Local, cfg.Credentials.AuthorID)
 
-	config.router.Post("/webhooks/incoming_event", handleIncomingMsg(ctx, bot, cfg, func() rtm.Push {
-		return &rtm.PushIncomingMessage{}
+	config.router.Post("/webhooks/incoming_event", handleIncomingMsg(ctx, bot, cfg, func() livechat.Push {
+		return &livechat.PushIncomingMessage{}
 	}))
-	config.router.Post("/webhooks/incoming_chat", handleIncomingMsg(ctx, bot, cfg, func() rtm.Push {
-		return &rtm.PushIncomingChat{}
+	config.router.Post("/webhooks/incoming_chat", handleIncomingMsg(ctx, bot, cfg, func() livechat.Push {
+		return &livechat.PushIncomingChat{}
 	}))
 
 	return bot
 }
 
-func handleIncomingMsg(ctx context.Context, bot bot_webhooks.Manager, cfg *config, body func() rtm.Push) http.HandlerFunc {
-	additionalData := bot_webhooks.RedirectData{
-		AppAuthorID: cfg.Credentials.AuthorID,
-	}
-
+func handleIncomingMsg(ctx context.Context, bot bot_webhooks.Manager, cfg *config, body func() livechat.Push) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyMsg := body()
 		if err := json.NewDecoder(r.Body).Decode(&bodyMsg); err != nil {
@@ -38,7 +34,7 @@ func handleIncomingMsg(ctx context.Context, bot bot_webhooks.Manager, cfg *confi
 			return
 		}
 
-		if err := bot.Redirect(ctx, bodyMsg, additionalData); err != nil {
+		if err := bot.Redirect(ctx, bodyMsg); err != nil {
 			sendError(w, err)
 			return
 		}

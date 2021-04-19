@@ -52,7 +52,7 @@ func main() {
 	})
 
 	router.Post("/webhooks/install", func(w http.ResponseWriter, r *http.Request) {
-		var payload webhooksPayload
+		var payload livechat.InstallApplicationWebhook
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			sendError(w, err)
 			return
@@ -83,13 +83,6 @@ func main() {
 }
 
 func selectBotManager(ctx context.Context, cfg *config, opts *appMethodConfig) bot.BotManager {
-	switch cfg.SelectMethod() {
-	case webhooksMethod:
-		return StartWebhooks(ctx, cfg, opts)
-	case rtmMethod:
-		return StartRTM(ctx, cfg, opts)
-	}
-
 	return StartWebhooks(ctx, cfg, opts)
 }
 
@@ -103,23 +96,6 @@ func sendError(w http.ResponseWriter, err error) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": err.Error(),
 	})
-}
-
-type webhooksPayload struct {
-	LicenseID livechat.LicenseID `json:"licenseID"`
-	AppName   string             `json:"applicationName"`
-	ClientID  string             `json:"clientID"`
-	Event     string             `json:"event"`
-}
-
-type incomingChatPayload struct {
-	Action    string             `json:"action"`
-	LicenseID livechat.LicenseID `json:"license_id"`
-	Payload   struct {
-		Chat struct {
-			ID livechat.ChatID `json:"id"`
-		} `json:"chat"`
-	} `json:"payload"`
 }
 
 type appMethodConfig struct {
