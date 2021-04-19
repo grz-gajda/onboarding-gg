@@ -44,7 +44,6 @@ func (c *livechatClient) sendRequest(ctx context.Context, payload livechat.Reque
 		}
 
 		jsonBody, err = json.Marshal(payload)
-		logrus.WithField("payload", string(jsonBody)).Info("BUILT PAYLOAD")
 		if err != nil {
 			return nil, fmt.Errorf("http_client: cannot encode request body: %w", err)
 		}

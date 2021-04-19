@@ -110,7 +110,8 @@ type DisableLicenseWebhookRequest struct {
 	ClientID ClientID `json:"owner_client_id,omitempty"`
 }
 
-func (r *DisableLicenseWebhookRequest) Endpoint() string { return disableLicenseWebhookEndpoint }
+func (r *DisableLicenseWebhookRequest) Endpoint() string          { return disableLicenseWebhookEndpoint }
+func (r *DisableLicenseWebhookRequest) WithClientID(cid ClientID) { r.ClientID = cid }
 
 type DisableLicenseWebhookResponse struct{}
 

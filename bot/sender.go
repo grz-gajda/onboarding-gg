@@ -23,11 +23,12 @@ func (s *sender) Talk(ctx context.Context, chatID livechat.ChatID, msg *livechat
 		return nil
 	}
 
-	return s.client.SendEvent(ctx, &livechat.Event{
-		ChatID: chatID,
-		Event: livechat.EventMessage{
-			Type: livechat.EventTypeMessage,
-			Text: "Hello world!",
-		},
-	})
+	switch msg.Payload.Event.Text {
+	case "Hello":
+		return s.client.SendEvent(ctx, livechat.BuildMessage(chatID, "World!"))
+	case "Wróc do człowieka":
+		return nil
+	default:
+		return s.client.SendEvent(ctx, livechat.BuildButtonMessage(chatID, "Czy chcesz wrócić do człowieka?", "", "Wróć do człowieka"))
+	}
 }

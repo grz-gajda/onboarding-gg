@@ -62,11 +62,6 @@ func (a *app) RegisterAction(ctx context.Context, actions ...string) error {
 }
 
 func (a *app) UnregisterActions(ctx context.Context) error {
-	clientID, err := auth.GetClientID(ctx)
-	if err != nil {
-		return fmt.Errorf("bot: register_action: %w", err)
-	}
-
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -79,12 +74,9 @@ func (a *app) UnregisterActions(ctx context.Context) error {
 
 		go func(aName string, d *webhookDetails) {
 			defer wg.Done()
-			_, err := a.lcHTTP.UnregisterWebhook(ctx, &livechat.UnregisterWebhookRequest{
-				ID:       d.id,
-				ClientID: clientID,
-			})
-
+			_, err := a.lcHTTP.UnregisterWebhook(ctx, &livechat.UnregisterWebhookRequest{ID: d.id})
 			logEntry := log.WithField("license_id", a.licenseID).WithField("webhook_id", d.id).WithContext(ctx).WithField("action", aName)
+
 			if err != nil {
 				logEntry.WithError(err).Error("Cannot unregister webhook")
 			} else {

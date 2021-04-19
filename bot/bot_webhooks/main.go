@@ -8,6 +8,11 @@ import (
 	"github.com/livechat/onboarding/livechat/web"
 )
 
+var WebhookEvents = []string{
+	"incoming_chat",
+	"incoming_event",
+}
+
 type Manager interface {
 	bot.BotManager
 	Redirect(context.Context, livechat.Push) error

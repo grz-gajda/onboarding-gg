@@ -32,7 +32,7 @@ func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
 
 	app.agents = bots
 
-	if err := app.RegisterAction(ctx, "incoming_chat", "incoming_event"); err != nil {
+	if err := app.RegisterAction(ctx, WebhookEvents...); err != nil {
 		log.WithField("license_id", id).WithError(err).Error("Cannot register 'incoming_chat' action")
 		return err
 	}
