@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/livechat/onboarding/bot"
+	"github.com/livechat/onboarding/bot/bot_webhooks/agents"
 	"github.com/livechat/onboarding/livechat"
-	"github.com/livechat/onboarding/livechat/auth"
-	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
 	log "github.com/sirupsen/logrus"
 )
@@ -17,32 +17,26 @@ type manager struct {
 	lcHTTP   web.LivechatRequests
 	localURL string
 
-	apps       *apps
-	botFactory *botFactory
+	apps   *apps
+	sender bot.Sender
 }
 
 func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
-	app := newApp(m.lcHTTP, id, m.localURL)
+	app := newApp(m.lcHTTP, m.sender, id, m.localURL)
 	m.apps.Register(app)
 
-	clientID, err := auth.GetClientID(ctx)
+	bots, err := agents.Initialize(ctx, m.lcHTTP)
 	if err != nil {
 		return err
 	}
 
-	bots, err := m.botFactory.Initialize(ctx)
-	if err != nil {
-		return err
-	}
-	for _, bot := range bots {
-		app.agents.Register(bot)
-	}
+	app.agents = bots
 
-	if err := app.RegisterAction(ctx, "incoming_chat", "incoming_event"); err != nil {
+	if err := app.RegisterAction(ctx, WebhookEvents...); err != nil {
 		log.WithField("license_id", id).WithError(err).Error("Cannot register 'incoming_chat' action")
 		return err
 	}
-	if _, err := app.lcHTTP.EnableLicenseWebhook(ctx, &web.EnableLicenseWebhookRequest{ClientID: clientID}); err != nil {
+	if _, err := app.lcHTTP.EnableLicenseWebhook(ctx, &livechat.EnableLicenseWebhookRequest{}); err != nil {
 		log.WithField("license_id", id).WithError(err).Error("Cannot enable webhooks")
 		return err
 	}
@@ -56,12 +50,7 @@ func (m *manager) UninstallApp(ctx context.Context, id livechat.LicenseID) error
 		return fmt.Errorf("bot: app (license id: %v) is not registered", id)
 	}
 
-	clientID, err := auth.GetClientID(ctx)
-	if err != nil {
-		return err
-	}
-
-	if _, err := app.lcHTTP.DisableLicenseWebhook(ctx, &web.DisableLicenseWebhookRequest{ClientID: clientID}); err != nil {
+	if _, err := app.lcHTTP.DisableLicenseWebhook(ctx, &livechat.DisableLicenseWebhookRequest{}); err != nil {
 		return err
 	}
 
@@ -83,20 +72,29 @@ func (m *manager) Destroy(ctx context.Context) {
 	wg.Wait()
 }
 
-func (m *manager) Redirect(ctx context.Context, rawMsg rtm.Push, payload ...RedirectData) error {
+func (m *manager) Redirect(ctx context.Context, rawMsg livechat.Push) error {
 	app, err := m.apps.Find(rawMsg.GetLicenseID())
 	if err != nil {
 		return fmt.Errorf("bot: redirect_action: %w", err)
 	}
 
-	switch msg := rawMsg.(type) {
-	case *rtm.PushIncomingMessage:
-		log.Debug("Received *PushIncomingMessage")
-		return app.IncomingEvent(ctx, msg, payload...)
-	case *rtm.PushIncomingChat:
-		log.Debug("Received *PushIncomingChat")
-		return app.TransferChat(ctx, msg, payload...)
-	}
+	logEntry := log.WithFields(log.Fields{
+		"license_id": rawMsg.GetLicenseID(),
+		"action":     rawMsg.GetAction(),
+	})
 
-	return errors.New("bot: received webhook with unknown message")
+	switch msg := rawMsg.(type) {
+	case *livechat.PushIncomingMessage:
+		logEntry.Debug("Received *PushIncomingMessage")
+		return app.IncomingEvent(ctx, msg)
+	case *livechat.PushIncomingChat:
+		logEntry.Debug("Received *PushIncomingChat")
+		return app.TransferChat(ctx, msg)
+	case *livechat.PushUserAddedToChat:
+		logEntry.WithField("raw_message", rawMsg).Debug("Received *PushUserAddedToChat")
+		return app.UserAddedToChat(ctx, msg)
+	default:
+		logEntry.Warn("Received webhook with unknown message")
+		return errors.New("bot: received webhook with unknown message")
+	}
 }

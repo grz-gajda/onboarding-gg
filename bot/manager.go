@@ -16,3 +16,7 @@ type BotManager interface {
 	// Destroy does everything what UninstallApp but for every license.
 	Destroy(context.Context)
 }
+
+type Sender interface {
+	Talk(context.Context, livechat.ChatID, *livechat.PushIncomingMessage) error
+}

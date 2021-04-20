@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
 	"github.com/sirupsen/logrus"
 )
@@ -24,23 +25,31 @@ type errorResponse struct {
 	} `json:"error"`
 }
 
-func (c *livechatClient) sendRequest(ctx context.Context, endpoint string, payload interface{}, body interface{}) (*http.Response, error) {
+func (c *livechatClient) sendRequest(ctx context.Context, payload livechat.Request, body interface{}) (*http.Response, error) {
 	var err error
 	var req *http.Request
 
+	if nil == payload {
+		return nil, fmt.Errorf("http_client: request body cannot be empty")
+	}
 	defer func() {
-		logrus.WithError(err).WithField("endpoint", endpoint).Debug("Sending HTTP request")
+		logrus.WithError(err).WithField("endpoint", payload.Endpoint()).Debug("Sending HTTP request")
 	}()
 
 	jsonBody := []byte("{}")
 	if payload != nil {
+		if payload, ok := payload.(livechat.ClientAuthorize); ok {
+			clientID, _ := auth.GetClientID(ctx)
+			payload.WithClientID(clientID)
+		}
+
 		jsonBody, err = json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("http_client: cannot encode request body: %w", err)
 		}
 	}
 
-	url := fmt.Sprintf("%s%s", c.url, endpoint)
+	url := fmt.Sprintf("%s%s", c.url, payload.Endpoint())
 	req, err = http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("http_client: %w", err)
@@ -63,7 +72,7 @@ func (c *livechatClient) sendRequest(ctx context.Context, endpoint string, paylo
 		return nil, fmt.Errorf("http_client: %w", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		logrus.WithField("url", endpoint).WithField("status_code", res.StatusCode).Debug("Received invalid response from WEB API LiveChat")
+		logrus.WithField("url", payload.Endpoint()).WithField("status_code", res.StatusCode).Debug("Received invalid response from WEB API LiveChat")
 		return nil, readErrorMessage(res.Body)
 	}
 

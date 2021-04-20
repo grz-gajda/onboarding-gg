@@ -3,11 +3,13 @@ package web
 import (
 	"context"
 	"fmt"
+
+	"github.com/livechat/onboarding/livechat"
 )
 
-func (c *livechatClient) CreateBot(ctx context.Context, payload *CreateBotRequest) (*CreateBotResponse, error) {
-	var body CreateBotResponse
-	_, err := c.sendRequest(ctx, createBotEndpoint, payload, &body)
+func (c *livechatClient) CreateBot(ctx context.Context, payload *livechat.CreateBotRequest) (*livechat.CreateBotResponse, error) {
+	var body livechat.CreateBotResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("create_bot action: %w", err)
 	}
@@ -15,9 +17,9 @@ func (c *livechatClient) CreateBot(ctx context.Context, payload *CreateBotReques
 	return &body, nil
 }
 
-func (c *livechatClient) DeleteBot(ctx context.Context, payload *DeleteBotRequest) (*DeleteBotResponse, error) {
-	var body DeleteBotResponse
-	_, err := c.sendRequest(ctx, deleteBotEndpoint, payload, &body)
+func (c *livechatClient) DeleteBot(ctx context.Context, payload *livechat.DeleteBotRequest) (*livechat.DeleteBotResponse, error) {
+	var body livechat.DeleteBotResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("delete_bot action: %w", err)
 	}
@@ -25,9 +27,9 @@ func (c *livechatClient) DeleteBot(ctx context.Context, payload *DeleteBotReques
 	return &body, nil
 }
 
-func (c *livechatClient) ListBots(ctx context.Context, payload *ListBotsRequest) ([]*ListBotResponse, error) {
-	var body []*ListBotResponse
-	_, err := c.sendRequest(ctx, listBotsEndpoint, payload, &body)
+func (c *livechatClient) ListBots(ctx context.Context, payload *livechat.ListBotsRequest) ([]*livechat.ListBotResponse, error) {
+	var body []*livechat.ListBotResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("list_bots action: %w", err)
 	}
@@ -35,9 +37,9 @@ func (c *livechatClient) ListBots(ctx context.Context, payload *ListBotsRequest)
 	return body, nil
 }
 
-func (c *livechatClient) TransferChat(ctx context.Context, payload *TransferChatRequest) (*TransferChatResponse, error) {
-	var body TransferChatResponse
-	_, err := c.sendRequest(ctx, transferChatEndpoint, payload, &body)
+func (c *livechatClient) TransferChat(ctx context.Context, payload *livechat.TransferChatRequest) (*livechat.TransferChatResponse, error) {
+	var body livechat.TransferChatResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("transfer_chat action: %w", err)
 	}
@@ -45,9 +47,9 @@ func (c *livechatClient) TransferChat(ctx context.Context, payload *TransferChat
 	return &body, nil
 }
 
-func (c *livechatClient) SendEvent(ctx context.Context, payload *SendEventRequest) (*SendEventResponse, error) {
-	var body SendEventResponse
-	_, err := c.sendRequest(ctx, sendEventEndpoint, payload, &body)
+func (c *livechatClient) SendEvent(ctx context.Context, payload *livechat.Event) (*livechat.SendEventResponse, error) {
+	var body livechat.SendEventResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("send_event action: %w", err)
 	}
@@ -55,9 +57,9 @@ func (c *livechatClient) SendEvent(ctx context.Context, payload *SendEventReques
 	return &body, nil
 }
 
-func (c *livechatClient) RegisterWebhook(ctx context.Context, payload *RegisterWebhookRequest) (*RegisterWebhookResponse, error) {
-	var body RegisterWebhookResponse
-	_, err := c.sendRequest(ctx, registerWebhookEndpoint, payload, &body)
+func (c *livechatClient) RegisterWebhook(ctx context.Context, payload *livechat.RegisterWebhookRequest) (*livechat.RegisterWebhookResponse, error) {
+	var body livechat.RegisterWebhookResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("register_webhook action: %w", err)
 	}
@@ -65,9 +67,9 @@ func (c *livechatClient) RegisterWebhook(ctx context.Context, payload *RegisterW
 	return &body, nil
 }
 
-func (c *livechatClient) UnregisterWebhook(ctx context.Context, payload *UnregisterWebhookRequest) (*UnregisterWebhookResponse, error) {
-	var body UnregisterWebhookResponse
-	_, err := c.sendRequest(ctx, unregisterWebhookEndpoint, payload, &body)
+func (c *livechatClient) UnregisterWebhook(ctx context.Context, payload *livechat.UnregisterWebhookRequest) (*livechat.UnregisterWebhookResponse, error) {
+	var body livechat.UnregisterWebhookResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("unregister_webhook action: %w", err)
 	}
@@ -75,9 +77,9 @@ func (c *livechatClient) UnregisterWebhook(ctx context.Context, payload *Unregis
 	return &body, nil
 }
 
-func (c *livechatClient) EnableLicenseWebhook(ctx context.Context, payload *EnableLicenseWebhookRequest) (*EnableLicenseWebhookResponse, error) {
-	var body EnableLicenseWebhookResponse
-	_, err := c.sendRequest(ctx, enableLicenseWebhookEndpoint, payload, &body)
+func (c *livechatClient) EnableLicenseWebhook(ctx context.Context, payload *livechat.EnableLicenseWebhookRequest) (*livechat.EnableLicenseWebhookResponse, error) {
+	var body livechat.EnableLicenseWebhookResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("enable_license_webhook action: %w", err)
 	}
@@ -85,9 +87,9 @@ func (c *livechatClient) EnableLicenseWebhook(ctx context.Context, payload *Enab
 	return &body, nil
 }
 
-func (c *livechatClient) DisableLicenseWebhook(ctx context.Context, payload *DisableLicenseWebhookRequest) (*DisableLicenseWebhookResponse, error) {
-	var body DisableLicenseWebhookResponse
-	_, err := c.sendRequest(ctx, disableLicenseWebhookEndpoint, payload, &body)
+func (c *livechatClient) DisableLicenseWebhook(ctx context.Context, payload *livechat.DisableLicenseWebhookRequest) (*livechat.DisableLicenseWebhookResponse, error) {
+	var body livechat.DisableLicenseWebhookResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("disable_license_webhook action: %w", err)
 	}
@@ -95,12 +97,22 @@ func (c *livechatClient) DisableLicenseWebhook(ctx context.Context, payload *Dis
 	return &body, nil
 }
 
-func (c *livechatClient) SetRoutingStatus(ctx context.Context, payload *SetRoutingStatusRequest) (*SetRoutingStatusResponse, error) {
-	var body SetRoutingStatusResponse
-	_, err := c.sendRequest(ctx, setRoutingStatusEndpoint, payload, &body)
+func (c *livechatClient) SetRoutingStatus(ctx context.Context, payload *livechat.SetRoutingStatusRequest) (*livechat.SetRoutingStatusResponse, error) {
+	var body livechat.SetRoutingStatusResponse
+	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("set_routing_status action: %w", err)
 	}
 
 	return &body, nil
+}
+
+func (c *livechatClient) ListAgents(ctx context.Context, payload *livechat.ListAgentsRequest) ([]*livechat.ListAgentsResponse, error) {
+	var body []*livechat.ListAgentsResponse
+	_, err := c.sendRequest(ctx, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("list_agents action: %w", err)
+	}
+
+	return body, nil
 }

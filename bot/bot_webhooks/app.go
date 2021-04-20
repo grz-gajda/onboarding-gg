@@ -7,17 +7,18 @@ import (
 	"sync"
 
 	"github.com/livechat/onboarding/bot"
+	"github.com/livechat/onboarding/bot/bot_webhooks/agents"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
-	"github.com/livechat/onboarding/livechat/rtm"
 	"github.com/livechat/onboarding/livechat/web"
 	log "github.com/sirupsen/logrus"
 )
 
 type app struct {
 	lcHTTP    web.LivechatRequests
+	sender    bot.Sender
 	licenseID livechat.LicenseID
-	agents    *agents
+	agents    agents.Agents
 	webhooks  map[string]*webhookDetails
 	localURL  string
 }
@@ -26,25 +27,20 @@ type webhookDetails struct {
 	id string
 }
 
-func newApp(lcHTTP web.LivechatRequests, id livechat.LicenseID, localURL string) *app {
+func newApp(lcHTTP web.LivechatRequests, sender bot.Sender, id livechat.LicenseID, localURL string) *app {
 	return &app{
 		lcHTTP:    lcHTTP,
 		licenseID: id,
-		agents:    &agents{},
+		agents:    agents.NewCollection(),
 		webhooks:  make(map[string]*webhookDetails),
 		localURL:  localURL,
+		sender:    sender,
 	}
 }
 
 func (a *app) RegisterAction(ctx context.Context, actions ...string) error {
-	clientID, err := auth.GetClientID(ctx)
-	if err != nil {
-		return fmt.Errorf("bot: register_action: %w", err)
-	}
-
 	for _, action := range actions {
-		payload := &web.RegisterWebhookRequest{
-			ClientID:  clientID,
+		payload := &livechat.RegisterWebhookRequest{
 			SecretKey: "random secret key",
 			URL:       fmt.Sprintf("%s/webhooks/%s", a.localURL, action),
 			Action:    action,
@@ -66,34 +62,21 @@ func (a *app) RegisterAction(ctx context.Context, actions ...string) error {
 }
 
 func (a *app) UnregisterActions(ctx context.Context) error {
-	clientID, err := auth.GetClientID(ctx)
-	if err != nil {
-		return fmt.Errorf("bot: register_action: %w", err)
-	}
-
 	wg := sync.WaitGroup{}
-
-	for _, agent := range a.agents.agents {
-		wg.Add(1)
-		go func(agentID livechat.AgentID) {
-			defer wg.Done()
-			if err := newBotFactory(a.lcHTTP).disableBot(ctx, agentID); err == nil {
-				log.WithField("license_id", a.licenseID).Debug("Bots are offline")
-			}
-		}(agent.ID)
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		agents.Terminate(ctx, a.lcHTTP, a.agents)
+	}()
 
 	for actionName, details := range a.webhooks {
 		wg.Add(1)
 
 		go func(aName string, d *webhookDetails) {
 			defer wg.Done()
-			_, err := a.lcHTTP.UnregisterWebhook(ctx, &web.UnregisterWebhookRequest{
-				ID:       d.id,
-				ClientID: clientID,
-			})
-
+			_, err := a.lcHTTP.UnregisterWebhook(ctx, &livechat.UnregisterWebhookRequest{ID: d.id})
 			logEntry := log.WithField("license_id", a.licenseID).WithField("webhook_id", d.id).WithContext(ctx).WithField("action", aName)
+
 			if err != nil {
 				logEntry.WithError(err).Error("Cannot unregister webhook")
 			} else {
@@ -106,7 +89,7 @@ func (a *app) UnregisterActions(ctx context.Context) error {
 	return nil
 }
 
-func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat, data ...RedirectData) error {
+func (a *app) TransferChat(ctx context.Context, msg *livechat.PushIncomingChat) error {
 	agent, err := a.agents.FindByChatExclude(msg.Payload.Chat.ID)
 	if err != nil {
 		return fmt.Errorf("bot: transfer_chat action: %w", err)
@@ -116,44 +99,34 @@ func (a *app) TransferChat(ctx context.Context, msg *rtm.PushIncomingChat, data 
 		return fmt.Errorf("bot: transfer_chat action: %w", err)
 	}
 
-	agent.chats = append(agent.chats, msg.Payload.Chat.ID)
-	return nil
+	return agent.RegisterChat(msg.Payload.Chat.ID)
 }
 
-func (a *app) IncomingEvent(ctx context.Context, msg *rtm.PushIncomingMessage, data ...RedirectData) error {
-	if msg.Payload.Event.Type != "message" {
-		return nil
-	}
-
-	if len(data) > 0 && data[0].AppAuthorID == msg.Payload.Event.AuthorID {
-		return nil
-	}
-
+func (a *app) IncomingEvent(ctx context.Context, msg *livechat.PushIncomingMessage) error {
 	agent, err := a.agents.FindByChat(msg.Payload.ChatID)
 	if err != nil {
-		if err := a.TransferChat(ctx, mapIncomingEventIntoTransferChat(msg)); err != nil {
-			return fmt.Errorf("bot: incoming_event action: %w", err)
-		}
-		return a.IncomingEvent(ctx, msg)
+		log.WithError(err).WithField("chat_id", msg.Payload.ChatID).Info("Any agent is assigned to this chat")
+		return nil
 	}
 
-	_, err = a.lcHTTP.SendEvent(auth.WithAuthorID(ctx, agent.ID), &web.SendEventRequest{
-		ChatID: msg.Payload.ChatID,
-		Event: web.Event{
-			Text:       bot.Talk(msg.Payload.Event.Text),
-			Type:       "message",
-			Recipients: "all",
-		},
-	})
+	return a.sender.Talk(auth.WithAuthorID(ctx, agent.ID), msg.Payload.ChatID, msg)
+}
 
+func (a *app) UserAddedToChat(ctx context.Context, msg *livechat.PushUserAddedToChat) error {
+	agent, err := a.agents.FindByChat(msg.Payload.ChatID)
 	if err != nil {
-		return fmt.Errorf("bot: incoming_event action: %w", err)
+		return nil
 	}
+
+	if msg.Payload.User.Present && msg.Payload.User.Type == "agent" {
+		return agent.UnregisterChat(msg.Payload.ChatID)
+	}
+
 	return nil
 }
 
-func buildTransferChatMessage(chatID livechat.ChatID, agentID livechat.AgentID) *web.TransferChatRequest {
-	return &web.TransferChatRequest{
+func buildTransferChatMessage(chatID livechat.ChatID, agentID livechat.AgentID) *livechat.TransferChatRequest {
+	return &livechat.TransferChatRequest{
 		ID: chatID,
 		Target: struct {
 			Type string             "json:\"type\""
@@ -166,8 +139,8 @@ func buildTransferChatMessage(chatID livechat.ChatID, agentID livechat.AgentID) 
 	}
 }
 
-func mapIncomingEventIntoTransferChat(msg *rtm.PushIncomingMessage) *rtm.PushIncomingChat {
-	return &rtm.PushIncomingChat{
+func mapIncomingEventIntoTransferChat(msg *livechat.PushIncomingMessage) *livechat.PushIncomingChat {
+	return &livechat.PushIncomingChat{
 		Action:    "incoming_chat",
 		LicenseID: msg.LicenseID,
 		Payload: struct {
