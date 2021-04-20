@@ -11,6 +11,7 @@ import (
 var WebhookEvents = []string{
 	"incoming_chat",
 	"incoming_event",
+	"user_added_to_chat",
 }
 
 type Manager interface {
@@ -23,15 +24,6 @@ func New(lcHTTP web.LivechatRequests, localURL string, authorID string) Manager 
 		lcHTTP:   lcHTTP,
 		localURL: localURL,
 		apps:     &apps{},
-		sender:   bot.NewSender(&senderClient{lcHTTP: lcHTTP}, authorID),
+		sender:   bot.NewSender(lcHTTP, authorID),
 	}
-}
-
-type senderClient struct {
-	lcHTTP web.LivechatRequests
-}
-
-func (s *senderClient) SendEvent(ctx context.Context, event *livechat.Event) error {
-	_, err := s.lcHTTP.SendEvent(ctx, event)
-	return err
 }

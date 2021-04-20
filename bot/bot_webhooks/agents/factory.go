@@ -8,6 +8,7 @@ import (
 
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/web"
+	log "github.com/sirupsen/logrus"
 )
 
 func Initialize(ctx context.Context, lcHTTP web.LivechatRequests) (Agents, error) {
@@ -39,6 +40,7 @@ func Initialize(ctx context.Context, lcHTTP web.LivechatRequests) (Agents, error
 		return agents, fmt.Errorf("bot_factory: received empty list of bots")
 	}
 
+	log.WithField("agents_num", agents.Len()).Debug("Registered agents")
 	return agents, nil
 }
 

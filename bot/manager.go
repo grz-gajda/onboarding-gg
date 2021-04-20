@@ -17,10 +17,6 @@ type BotManager interface {
 	Destroy(context.Context)
 }
 
-type SenderClient interface {
-	SendEvent(ctx context.Context, event *livechat.Event) error
-}
-
 type Sender interface {
 	Talk(context.Context, livechat.ChatID, *livechat.PushIncomingMessage) error
 }

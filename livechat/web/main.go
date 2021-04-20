@@ -17,6 +17,7 @@ type LivechatRequests interface {
 	CreateBot(context.Context, *livechat.CreateBotRequest) (*livechat.CreateBotResponse, error)
 	DeleteBot(context.Context, *livechat.DeleteBotRequest) (*livechat.DeleteBotResponse, error)
 	ListBots(context.Context, *livechat.ListBotsRequest) ([]*livechat.ListBotResponse, error)
+	ListAgents(context.Context, *livechat.ListAgentsRequest) ([]*livechat.ListAgentsResponse, error)
 
 	TransferChat(context.Context, *livechat.TransferChatRequest) (*livechat.TransferChatResponse, error)
 	SendEvent(context.Context, *livechat.Event) (*livechat.SendEventResponse, error)

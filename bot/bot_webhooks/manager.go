@@ -78,14 +78,23 @@ func (m *manager) Redirect(ctx context.Context, rawMsg livechat.Push) error {
 		return fmt.Errorf("bot: redirect_action: %w", err)
 	}
 
+	logEntry := log.WithFields(log.Fields{
+		"license_id": rawMsg.GetLicenseID(),
+		"action":     rawMsg.GetAction(),
+	})
+
 	switch msg := rawMsg.(type) {
 	case *livechat.PushIncomingMessage:
-		log.Debug("Received *PushIncomingMessage")
+		logEntry.Debug("Received *PushIncomingMessage")
 		return app.IncomingEvent(ctx, msg)
 	case *livechat.PushIncomingChat:
-		log.Debug("Received *PushIncomingChat")
+		logEntry.Debug("Received *PushIncomingChat")
 		return app.TransferChat(ctx, msg)
+	case *livechat.PushUserAddedToChat:
+		logEntry.WithField("raw_message", rawMsg).Debug("Received *PushUserAddedToChat")
+		return app.UserAddedToChat(ctx, msg)
+	default:
+		logEntry.Warn("Received webhook with unknown message")
+		return errors.New("bot: received webhook with unknown message")
 	}
-
-	return errors.New("bot: received webhook with unknown message")
 }

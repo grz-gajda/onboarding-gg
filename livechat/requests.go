@@ -9,12 +9,14 @@ type ClientAuthorize interface {
 }
 
 const (
-	createBotEndpoint = "/configuration/action/create_bot"
-	deleteBotEndpoint = "/configuration/action/delete_bot"
-	listBotsEndpoint  = "/configuration/action/list_bots"
+	createBotEndpoint  = "/configuration/action/create_bot"
+	deleteBotEndpoint  = "/configuration/action/delete_bot"
+	listBotsEndpoint   = "/configuration/action/list_bots"
+	listAgentsEndpoint = "/configuration/action/list_agents"
 
-	transferChatEndpoint = "/agent/action/transfer_chat"
-	sendEventEndpoint    = "/agent/action/send_event"
+	transferChatEndpoint       = "/agent/action/transfer_chat"
+	sendEventEndpoint          = "/agent/action/send_event"
+	removeUserFromChatEndpoint = "/agent/action/remove_user_from_chat"
 
 	registerWebhookEndpoint       = "/configuration/action/register_webhook"
 	unregisterWebhookEndpoint     = "/configuration/action/unregister_webhook"
@@ -123,3 +125,13 @@ type SetRoutingStatusRequest struct {
 func (r *SetRoutingStatusRequest) Endpoint() string { return setRoutingStatusEndpoint }
 
 type SetRoutingStatusResponse struct{}
+
+type ListAgentsRequest struct{}
+
+func (r *ListAgentsRequest) Endpoint() string { return listAgentsEndpoint }
+
+type ListAgentsResponse struct {
+	ID            AgentID `json:"id"`
+	JobTitle      string  `json:"job_title"`
+	MaxChatsCount int     `json:"max_chats_count"`
+}

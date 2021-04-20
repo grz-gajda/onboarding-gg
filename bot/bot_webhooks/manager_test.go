@@ -86,10 +86,6 @@ func Test_Manager_Redirect_IncomingEvent(t *testing.T) {
 	ctx := context.Background()
 	lcHTTP := new(mocks.LivechatRequests)
 
-	lcHTTP.On("TransferChat", ctx, mock.MatchedBy(func(p *livechat.TransferChatRequest) bool {
-		return p.ID == validChatID
-	})).Once().Return(&livechat.TransferChatResponse{}, nil)
-
 	lcHTTP.On("SendEvent", mock.MatchedBy(func(c context.Context) bool {
 		authorID, err := auth.GetAuthorID(c)
 		return assert.NoError(t, err) && assert.Equal(t, validBotID, authorID)
@@ -104,6 +100,43 @@ func Test_Manager_Redirect_IncomingEvent(t *testing.T) {
 	manager, _ := helperCreateManager(t, ctx, lcHTTP)
 	err := manager.Redirect(ctx, message)
 	assert.NoError(t, err)
+}
+
+func Test_Manager_Redirect_IncomingEvent_TransferChat(t *testing.T) {
+	ctx := context.Background()
+	lcHTTP := new(mocks.LivechatRequests)
+
+	lcHTTP.On("TransferChat", mock.Anything, mock.MatchedBy(func(p *livechat.TransferChatRequest) bool {
+		return p.ID == validChatID && len(p.Target.IDs) > 0
+	})).Twice().Return(&livechat.TransferChatResponse{}, nil)
+
+	lcHTTP.On("ListAgents", mock.Anything, mock.Anything).Once().Return([]*livechat.ListAgentsResponse{
+		{ID: livechat.AgentID("agent_1234")},
+	}, nil)
+
+	message := helperBuildPushIncomingEvent(t, validLicenseID, validChatID)
+	message.Payload.Event.Text = "Wróć do człowieka"
+	message.Payload.Event.AuthorID = "custom_author_id"
+
+	manager, _ := helperCreateManager(t, ctx, lcHTTP)
+	assert.NoError(t, manager.Redirect(ctx, helperBuildPushIncomingChat(t, validLicenseID, validChatID)))
+	assert.NoError(t, manager.Redirect(ctx, message))
+	lcHTTP.AssertNumberOfCalls(t, "TransferChat", 2)
+}
+
+func Test_Manager_UserAddedToChat(t *testing.T) {
+	ctx := context.Background()
+	lcHTTP := new(mocks.LivechatRequests)
+
+	lcHTTP.On("TransferChat", mock.Anything, mock.Anything).Once().Return(&livechat.TransferChatResponse{}, nil)
+
+	manager, _ := helperCreateManager(t, ctx, lcHTTP)
+	assert.NoError(t, manager.Redirect(ctx, helperBuildPushIncomingChat(t, validLicenseID, validChatID)))
+	assert.Equal(t, 1, manager.apps.apps[0].agents.Len())
+
+	assert.NoError(t, manager.Redirect(ctx, helperBuildPushUserAddedToChat(t, validLicenseID, validChatID)))
+	_, err := manager.apps.apps[0].agents.FindByChat(validChatID)
+	assert.Error(t, err)
 }
 
 func helperCreateManager(t *testing.T, ctx context.Context, lcHTTP *mocks.LivechatRequests) (*manager, error) {
@@ -172,6 +205,30 @@ func helperBuildPushIncomingEvent(t *testing.T, licenseID livechat.LicenseID, ch
 				AuthorID string "json:\"author_id\""
 			}{
 				Type: "message",
+			},
+		},
+	}
+}
+
+func helperBuildPushUserAddedToChat(t *testing.T, licenseID livechat.LicenseID, chatID livechat.ChatID) *livechat.PushUserAddedToChat {
+	t.Helper()
+	return &livechat.PushUserAddedToChat{
+		Action:    "user_added_to_chat",
+		LicenseID: licenseID,
+		Payload: struct {
+			ChatID livechat.ChatID "json:\"chat_id\""
+			User   struct {
+				Present bool   "json:\"present\""
+				Type    string "json:\"type\""
+			} "json:\"user\""
+		}{
+			ChatID: chatID,
+			User: struct {
+				Present bool   "json:\"present\""
+				Type    string "json:\"type\""
+			}{
+				Present: true,
+				Type:    "agent",
 			},
 		},
 	}

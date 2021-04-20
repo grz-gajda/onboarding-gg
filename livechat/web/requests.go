@@ -106,3 +106,13 @@ func (c *livechatClient) SetRoutingStatus(ctx context.Context, payload *livechat
 
 	return &body, nil
 }
+
+func (c *livechatClient) ListAgents(ctx context.Context, payload *livechat.ListAgentsRequest) ([]*livechat.ListAgentsResponse, error) {
+	var body []*livechat.ListAgentsResponse
+	_, err := c.sendRequest(ctx, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("list_agents action: %w", err)
+	}
+
+	return body, nil
+}

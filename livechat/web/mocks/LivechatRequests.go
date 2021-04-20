@@ -106,6 +106,29 @@ func (_m *LivechatRequests) EnableLicenseWebhook(_a0 context.Context, _a1 *livec
 	return r0, r1
 }
 
+// ListAgents provides a mock function with given fields: _a0, _a1
+func (_m *LivechatRequests) ListAgents(_a0 context.Context, _a1 *livechat.ListAgentsRequest) ([]*livechat.ListAgentsResponse, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 []*livechat.ListAgentsResponse
+	if rf, ok := ret.Get(0).(func(context.Context, *livechat.ListAgentsRequest) []*livechat.ListAgentsResponse); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*livechat.ListAgentsResponse)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *livechat.ListAgentsRequest) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListBots provides a mock function with given fields: _a0, _a1
 func (_m *LivechatRequests) ListBots(_a0 context.Context, _a1 *livechat.ListBotsRequest) ([]*livechat.ListBotResponse, error) {
 	ret := _m.Called(_a0, _a1)

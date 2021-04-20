@@ -22,6 +22,9 @@ func StartWebhooks(ctx context.Context, cfg *config, config *appMethodConfig) bo
 	config.router.Post("/webhooks/incoming_chat", handleIncomingMsg(ctx, bot, cfg, func() livechat.Push {
 		return &livechat.PushIncomingChat{}
 	}))
+	config.router.Post("/webhooks/user_added_to_chat", handleIncomingMsg(ctx, bot, cfg, func() livechat.Push {
+		return &livechat.PushUserAddedToChat{}
+	}))
 
 	return bot
 }

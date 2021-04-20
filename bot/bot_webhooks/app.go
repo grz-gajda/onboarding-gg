@@ -105,13 +105,24 @@ func (a *app) TransferChat(ctx context.Context, msg *livechat.PushIncomingChat) 
 func (a *app) IncomingEvent(ctx context.Context, msg *livechat.PushIncomingMessage) error {
 	agent, err := a.agents.FindByChat(msg.Payload.ChatID)
 	if err != nil {
-		if err := a.TransferChat(ctx, mapIncomingEventIntoTransferChat(msg)); err != nil {
-			return fmt.Errorf("bot: incoming_event action: %w", err)
-		}
-		return a.IncomingEvent(ctx, msg)
+		log.WithError(err).WithField("chat_id", msg.Payload.ChatID).Info("Any agent is assigned to this chat")
+		return nil
 	}
 
 	return a.sender.Talk(auth.WithAuthorID(ctx, agent.ID), msg.Payload.ChatID, msg)
+}
+
+func (a *app) UserAddedToChat(ctx context.Context, msg *livechat.PushUserAddedToChat) error {
+	agent, err := a.agents.FindByChat(msg.Payload.ChatID)
+	if err != nil {
+		return nil
+	}
+
+	if msg.Payload.User.Present && msg.Payload.User.Type == "agent" {
+		return agent.UnregisterChat(msg.Payload.ChatID)
+	}
+
+	return nil
 }
 
 func buildTransferChatMessage(chatID livechat.ChatID, agentID livechat.AgentID) *livechat.TransferChatRequest {

@@ -41,3 +41,18 @@ type PushIncomingChat struct {
 
 func (m *PushIncomingChat) GetAction() string       { return m.Action }
 func (m *PushIncomingChat) GetLicenseID() LicenseID { return m.LicenseID }
+
+type PushUserAddedToChat struct {
+	Action    string    `json:"action"`
+	LicenseID LicenseID `json:"license_id,omitempty"`
+	Payload   struct {
+		ChatID ChatID `json:"chat_id"`
+		User   struct {
+			Present bool   `json:"present"`
+			Type    string `json:"type"`
+		} `json:"user"`
+	} `json:"payload"`
+}
+
+func (m *PushUserAddedToChat) GetAction() string       { return m.Action }
+func (m *PushUserAddedToChat) GetLicenseID() LicenseID { return m.LicenseID }

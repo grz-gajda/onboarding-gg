@@ -33,3 +33,18 @@ out:
 	a.chats = chatsToRegister
 	return nil
 }
+
+func (a *Agent) UnregisterChat(chatID livechat.ChatID) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	chatsToRegister := []livechat.ChatID{}
+	for _, chat := range a.chats {
+		if chat != chatID {
+			chatsToRegister = append(chatsToRegister, chat)
+		}
+	}
+
+	a.chats = chatsToRegister
+	return nil
+}
