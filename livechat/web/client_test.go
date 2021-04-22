@@ -10,7 +10,7 @@ import (
 
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
-	"github.com/livechat/onboarding/livechat/web/mocks"
+	"github.com/livechat/onboarding/livechat/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -34,7 +34,7 @@ type exampleResponse struct {
 }
 
 func Test_Client_WithBody(t *testing.T) {
-	ctx := auth.WithToken(context.Background(), "username", "password")
+	ctx := auth.WithPAT(context.Background(), "username", "password")
 
 	httpClient := new(mocks.Client)
 	httpClient.On("Do", mock.MatchedBy(func(r *http.Request) bool {
@@ -62,7 +62,7 @@ func Test_Client_WithBody(t *testing.T) {
 }
 
 func Test_Client_WithClientID(t *testing.T) {
-	ctx := auth.WithToken(context.Background(), "username", "password")
+	ctx := auth.WithPAT(context.Background(), "username", "password")
 	ctx = auth.WithClientID(ctx, livechat.ClientID("custom_client_id"))
 
 	httpClient := new(mocks.Client)

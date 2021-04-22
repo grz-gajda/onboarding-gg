@@ -16,11 +16,15 @@ var (
 	authorToken = ctxToken("with_author_token")
 )
 
-func WithToken(ctx context.Context, username, password string) context.Context {
-	token := fmt.Sprintf("%s:%s", username, password)
+func WithPAT(ctx context.Context, username, password string) context.Context {
+	token := fmt.Sprintf("Basic %s:%s", username, password)
 	hashed := base64.StdEncoding.EncodeToString([]byte(token))
 
 	return context.WithValue(ctx, authToken, hashed)
+}
+
+func WithOAuth(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, authToken, fmt.Sprintf("Bearer %s", token))
 }
 
 func WithClientID(ctx context.Context, clientID livechat.ClientID) context.Context {

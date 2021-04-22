@@ -21,9 +21,10 @@ type Manager interface {
 
 func New(lcHTTP web.LivechatRequests, localURL string, authorID string) Manager {
 	return &manager{
-		lcHTTP:   lcHTTP,
-		localURL: localURL,
-		apps:     &apps{},
-		sender:   bot.NewSender(lcHTTP, authorID),
+		lcHTTP:         lcHTTP,
+		localURL:       localURL,
+		apps:           &apps{},
+		sender:         bot.NewSender(lcHTTP, authorID),
+		readyToInstall: make(chan bool),
 	}
 }

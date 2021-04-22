@@ -1,12 +1,19 @@
 package bot_webhooks
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
+	lcMocks "github.com/livechat/onboarding/livechat/mocks"
 	"github.com/livechat/onboarding/livechat/web/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -18,11 +25,29 @@ const (
 
 	validChatID = livechat.ChatID("chat_id_1")
 	validBotID  = livechat.AgentID("bot_1")
+
+	oauthToken = "some_random_token"
 )
 
 var (
 	webhooksLen = len(WebhookEvents)
+	matchCtx    = mock.MatchedBy(mockContextWithOAuthToken)
 )
+
+func Test_Manager_Authorize(t *testing.T) {
+	ctx := context.Background()
+	lcHTTP := new(mocks.LivechatRequests)
+
+	httpClient := new(lcMocks.Client)
+	httpClient.On("Do", mock.Anything).Once().Return(&http.Response{
+		Body:       io.NopCloser(strings.NewReader(`{"access_token":"abcd"}`)),
+		StatusCode: http.StatusOK,
+	}, nil)
+
+	mng := New(lcHTTP, "", "")
+	assert.NoError(t, mng.Authorize(ctx, httpClient, &auth.AuthorizeCredentials{}))
+	assert.NoError(t, mng.Authorize(ctx, httpClient, &auth.AuthorizeCredentials{}))
+}
 
 func Test_Manager_Install(t *testing.T) {
 	ctx := context.Background()
@@ -59,10 +84,10 @@ func Test_Manager_Uninstall_ValidLicenseID(t *testing.T) {
 	lcHTTP := new(mocks.LivechatRequests)
 
 	// +uninstall webhooks
-	lcHTTP.On("DisableLicenseWebhook", ctx, mock.Anything).Once().Return(&livechat.DisableLicenseWebhookResponse{}, nil)
-	lcHTTP.On("UnregisterWebhook", ctx, mock.Anything).Times(webhooksLen).Return(&livechat.UnregisterWebhookResponse{}, nil)
+	lcHTTP.On("DisableLicenseWebhook", matchCtx, mock.Anything).Once().Return(&livechat.DisableLicenseWebhookResponse{}, nil)
+	lcHTTP.On("UnregisterWebhook", matchCtx, mock.Anything).Times(webhooksLen).Return(&livechat.UnregisterWebhookResponse{}, nil)
 	// +uninstall bots
-	lcHTTP.On("SetRoutingStatus", ctx, mock.Anything).Twice().Return(&livechat.SetRoutingStatusResponse{}, nil)
+	lcHTTP.On("SetRoutingStatus", matchCtx, mock.Anything).Twice().Return(&livechat.SetRoutingStatusResponse{}, nil)
 
 	manager, err := helperCreateManager(t, ctx, lcHTTP)
 	assert.NoError(t, err)
@@ -73,7 +98,7 @@ func Test_Manager_Redirect_IncomingChat(t *testing.T) {
 	ctx := context.Background()
 	lcHTTP := new(mocks.LivechatRequests)
 
-	lcHTTP.On("TransferChat", ctx, mock.MatchedBy(func(p *livechat.TransferChatRequest) bool {
+	lcHTTP.On("TransferChat", matchCtx, mock.MatchedBy(func(p *livechat.TransferChatRequest) bool {
 		return p.ID == validChatID
 	})).Once().Return(&livechat.TransferChatResponse{}, nil)
 
@@ -106,11 +131,11 @@ func Test_Manager_Redirect_IncomingEvent_TransferChat(t *testing.T) {
 	ctx := context.Background()
 	lcHTTP := new(mocks.LivechatRequests)
 
-	lcHTTP.On("TransferChat", mock.Anything, mock.MatchedBy(func(p *livechat.TransferChatRequest) bool {
+	lcHTTP.On("TransferChat", matchCtx, mock.MatchedBy(func(p *livechat.TransferChatRequest) bool {
 		return p.ID == validChatID && len(p.Target.IDs) > 0
 	})).Twice().Return(&livechat.TransferChatResponse{}, nil)
 
-	lcHTTP.On("ListAgents", mock.Anything, mock.Anything).Once().Return([]*livechat.ListAgentsResponse{
+	lcHTTP.On("ListAgents", matchCtx, mock.Anything).Once().Return([]*livechat.ListAgentsResponse{
 		{ID: livechat.AgentID("agent_1234")},
 	}, nil)
 
@@ -128,7 +153,7 @@ func Test_Manager_UserAddedToChat(t *testing.T) {
 	ctx := context.Background()
 	lcHTTP := new(mocks.LivechatRequests)
 
-	lcHTTP.On("TransferChat", mock.Anything, mock.Anything).Once().Return(&livechat.TransferChatResponse{}, nil)
+	lcHTTP.On("TransferChat", matchCtx, mock.Anything).Once().Return(&livechat.TransferChatResponse{}, nil)
 
 	manager, _ := helperCreateManager(t, ctx, lcHTTP)
 	assert.NoError(t, manager.Redirect(ctx, helperBuildPushIncomingChat(t, validLicenseID, validChatID)))
@@ -142,17 +167,43 @@ func Test_Manager_UserAddedToChat(t *testing.T) {
 func helperCreateManager(t *testing.T, ctx context.Context, lcHTTP *mocks.LivechatRequests) (*manager, error) {
 	t.Helper()
 	// +install bots
-	lcHTTP.On("CreateBot", ctx, mock.Anything).Once().Return(&livechat.CreateBotResponse{ID: validBotID}, nil)
-	lcHTTP.On("ListBots", ctx, mock.Anything).Once().Return([]*livechat.ListBotResponse{{ID: validBotID}}, nil)
-	lcHTTP.On("SetRoutingStatus", ctx, mock.Anything).Once().Return(&livechat.SetRoutingStatusResponse{}, nil)
+	lcHTTP.On("CreateBot", matchCtx, mock.Anything).Once().Return(&livechat.CreateBotResponse{ID: validBotID}, nil)
+	lcHTTP.On("ListBots", matchCtx, mock.Anything).Once().Return([]*livechat.ListBotResponse{{ID: validBotID}}, nil)
+	lcHTTP.On("SetRoutingStatus", matchCtx, mock.Anything).Once().Return(&livechat.SetRoutingStatusResponse{}, nil)
 	// +install webhooks
-	lcHTTP.On("RegisterWebhook", ctx, mock.Anything).Times(webhooksLen).Return(&livechat.RegisterWebhookResponse{}, nil)
-	lcHTTP.On("EnableLicenseWebhook", ctx, mock.Anything).Twice().Return(&livechat.EnableLicenseWebhookResponse{}, nil)
+	lcHTTP.On("RegisterWebhook", matchCtx, mock.Anything).Times(webhooksLen).Return(&livechat.RegisterWebhookResponse{}, nil)
+	lcHTTP.On("EnableLicenseWebhook", matchCtx, mock.Anything).Twice().Return(&livechat.EnableLicenseWebhookResponse{}, nil)
+
+	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(1 * time.Second):
+			cancel()
+		}
+	}()
 
 	mng := New(lcHTTP, "http://localhost:8081", "author_id")
-	err := mng.InstallApp(ctx, validLicenseID)
+	go func() {
+		byteBody, err := json.Marshal(map[string]string{"access_token": oauthToken})
+		if err != nil {
+			return
+		}
 
+		httpClient := new(lcMocks.Client)
+		httpClient.On("Do", mock.Anything).Once().Return(&http.Response{
+			Body:       io.NopCloser(bytes.NewBuffer(byteBody)),
+			StatusCode: http.StatusOK,
+		}, nil)
+
+		time.Sleep(100 * time.Millisecond)
+		assert.NoError(t, mng.Authorize(ctx, httpClient, &auth.AuthorizeCredentials{}))
+	}()
+
+	err := mng.InstallApp(ctx, validLicenseID)
 	if !assert.NoError(t, err) {
+		t.Fatalf("cannot create manager: %s", err.Error())
 		return nil, fmt.Errorf("canno create manager: %w", err)
 	}
 
@@ -232,4 +283,13 @@ func helperBuildPushUserAddedToChat(t *testing.T, licenseID livechat.LicenseID, 
 			},
 		},
 	}
+}
+
+func mockContextWithOAuthToken(ctx context.Context) bool {
+	token, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return false
+	}
+
+	return token == fmt.Sprintf("Bearer %s", oauthToken)
 }

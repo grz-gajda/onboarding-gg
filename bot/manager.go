@@ -4,9 +4,11 @@ import (
 	"context"
 
 	"github.com/livechat/onboarding/livechat"
+	"github.com/livechat/onboarding/livechat/auth"
 )
 
 type BotManager interface {
+	Authorize(context.Context, livechat.Client, *auth.AuthorizeCredentials) error
 	// InstallApp allows to register new license into memory
 	// and fetch existing (or create a new one) bots (agents).
 	InstallApp(context.Context, livechat.LicenseID) error

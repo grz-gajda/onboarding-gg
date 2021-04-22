@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/livechat"
 	"github.com/livechat/onboarding/livechat/auth"
 	log "github.com/sirupsen/logrus"
@@ -28,8 +28,7 @@ func main() {
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 
 	// GLOBAL CONTEXT
-	ctx := auth.WithToken(context.Background(), cfg.Auth.Username, cfg.Auth.Password)
-	ctx = auth.WithClientID(ctx, cfg.Credentials.ClientID)
+	ctx := auth.WithClientID(context.Background(), cfg.Credentials.ClientID)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -37,7 +36,7 @@ func main() {
 	router.Use(middleware.RequestLogger(&logrusFormatter{logger: log.StandardLogger()}))
 	router.Use(middleware.Recoverer)
 
-	botManager := selectBotManager(ctx, cfg, &appMethodConfig{
+	botManager := StartWebhooks(cfg, &appMethodConfig{
 		httpClient: httpClient,
 		router:     router,
 	})
@@ -47,11 +46,36 @@ func main() {
 		botManager.Destroy(ctx)
 	})
 
-	router.Get("/webhooks/install", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/auth", func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		referrerUri := fmt.Sprintf("%s/auth", cfg.URL.Local)
+
+		code := r.URL.Query().Get("code")
+		if code == "" {
+			w.Header().Add("Location", fmt.Sprintf("https://accounts.livechat.com/?response_type=code&client_id=%s&redirect_uri=%s", cfg.Credentials.ClientID, referrerUri))
+			w.WriteHeader(http.StatusTemporaryRedirect)
+			return
+		}
+
+		err := botManager.Authorize(r.Context(), httpClient, &auth.AuthorizeCredentials{
+			Code:        code,
+			ClientID:    cfg.Credentials.ClientID,
+			Secret:      cfg.Credentials.Secret,
+			RedirectURI: referrerUri,
+		})
+
+		if err != nil {
+			sendError(w, err)
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
 	})
 
 	router.Post("/webhooks/install", func(w http.ResponseWriter, r *http.Request) {
+		ctx := auth.WithClientID(r.Context(), cfg.Credentials.ClientID)
+		defer r.Body.Close()
+
 		var payload livechat.InstallApplicationWebhook
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			sendError(w, err)
@@ -59,6 +83,9 @@ func main() {
 		}
 
 		if payload.Event == "application_installed" {
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+
 			if err := botManager.InstallApp(ctx, payload.LicenseID); err != nil {
 				log.WithError(err).WithField("id", payload.LicenseID).Error("Cannot install application")
 				sendError(w, err)
@@ -80,10 +107,6 @@ func main() {
 	if err := http.ListenAndServe(":8081", router); err != nil {
 		log.Panicf("Something happened during HTTP request: %s", err)
 	}
-}
-
-func selectBotManager(ctx context.Context, cfg *config, opts *appMethodConfig) bot.BotManager {
-	return StartWebhooks(ctx, cfg, opts)
 }
 
 func sendError(w http.ResponseWriter, err error) {
