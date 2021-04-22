@@ -37,6 +37,7 @@ type authConfig struct {
 
 type credentials struct {
 	ClientID livechat.ClientID `json:"client_id" validate:"required"`
+	Secret   string            `json:"client_secret" validate:"required"`
 	AuthorID string            `json:"author_id" validate:"required"`
 }
 

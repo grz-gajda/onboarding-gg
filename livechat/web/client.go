@@ -14,7 +14,7 @@ import (
 )
 
 type livechatClient struct {
-	httpClient Client
+	httpClient livechat.Client
 	url        string
 }
 
@@ -60,7 +60,7 @@ func (c *livechatClient) sendRequest(ctx context.Context, payload livechat.Reque
 		return nil, fmt.Errorf("http_client: %w", err)
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Basic %s", bearerToken))
+	req.Header.Add("Authorization", bearerToken)
 	req.Header.Add("Content-type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	if authorID, err := auth.GetAuthorID(ctx); err != nil {
@@ -71,6 +71,7 @@ func (c *livechatClient) sendRequest(ctx context.Context, payload livechat.Reque
 	if err != nil {
 		return nil, fmt.Errorf("http_client: %w", err)
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		logrus.WithField("url", payload.Endpoint()).WithField("status_code", res.StatusCode).Debug("Received invalid response from WEB API LiveChat")
 		return nil, readErrorMessage(res.Body)

@@ -2,15 +2,9 @@ package web
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/livechat/onboarding/livechat"
 )
-
-//go:generate mockery --name Client
-type Client interface {
-	Do(*http.Request) (*http.Response, error)
-}
 
 //go:generate mockery --name LivechatRequests
 type LivechatRequests interface {
@@ -30,7 +24,7 @@ type LivechatRequests interface {
 	SetRoutingStatus(context.Context, *livechat.SetRoutingStatusRequest) (*livechat.SetRoutingStatusResponse, error)
 }
 
-func New(client Client, url string) LivechatRequests {
+func New(client livechat.Client, url string) LivechatRequests {
 	return &livechatClient{
 		httpClient: client,
 		url:        url,

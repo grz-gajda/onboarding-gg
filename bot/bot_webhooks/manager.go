@@ -9,6 +9,7 @@ import (
 	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/bot/bot_webhooks/agents"
 	"github.com/livechat/onboarding/livechat"
+	"github.com/livechat/onboarding/livechat/auth"
 	"github.com/livechat/onboarding/livechat/web"
 	log "github.com/sirupsen/logrus"
 )
@@ -17,14 +18,46 @@ type manager struct {
 	lcHTTP   web.LivechatRequests
 	localURL string
 
-	apps   *apps
-	sender bot.Sender
+	apps           *apps
+	sender         bot.Sender
+	authToken      string
+	readyToInstall chan bool
+}
+
+func (m *manager) Authorize(ctx context.Context, client livechat.Client, data *auth.AuthorizeCredentials) error {
+	if m.authToken != "" {
+		return nil
+	}
+
+	response, err := auth.Authorize(ctx, client, data)
+	if err != nil {
+		return err
+	}
+
+	m.authToken = response.AccessToken
+	go func() {
+		m.readyToInstall <- true
+		close(m.readyToInstall)
+	}()
+
+	return nil
 }
 
 func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
 	app := newApp(m.lcHTTP, m.sender, id, m.localURL)
 	m.apps.Register(app)
 
+	if m.authToken == "" {
+		select {
+		case <-m.readyToInstall:
+			log.Debug("App is ready to be installed!")
+			break
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	ctx = auth.WithOAuth(ctx, m.authToken)
 	bots, err := agents.Initialize(ctx, m.lcHTTP)
 	if err != nil {
 		return err
@@ -34,10 +67,12 @@ func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
 
 	if err := app.RegisterAction(ctx, WebhookEvents...); err != nil {
 		log.WithField("license_id", id).WithError(err).Error("Cannot register 'incoming_chat' action")
+		m.apps.Unregister(id)
 		return err
 	}
 	if _, err := app.lcHTTP.EnableLicenseWebhook(ctx, &livechat.EnableLicenseWebhookRequest{}); err != nil {
 		log.WithField("license_id", id).WithError(err).Error("Cannot enable webhooks")
+		m.apps.Unregister(id)
 		return err
 	}
 
@@ -50,6 +85,8 @@ func (m *manager) UninstallApp(ctx context.Context, id livechat.LicenseID) error
 		return fmt.Errorf("bot: app (license id: %v) is not registered", id)
 	}
 
+	ctx = auth.WithOAuth(ctx, m.authToken)
+
 	if _, err := app.lcHTTP.DisableLicenseWebhook(ctx, &livechat.DisableLicenseWebhookRequest{}); err != nil {
 		return err
 	}
@@ -59,6 +96,7 @@ func (m *manager) UninstallApp(ctx context.Context, id livechat.LicenseID) error
 
 func (m *manager) Destroy(ctx context.Context) {
 	wg := &sync.WaitGroup{}
+	ctx = auth.WithOAuth(ctx, m.authToken)
 
 	for _, app := range m.apps.apps {
 		wg.Add(1)
@@ -78,6 +116,7 @@ func (m *manager) Redirect(ctx context.Context, rawMsg livechat.Push) error {
 		return fmt.Errorf("bot: redirect_action: %w", err)
 	}
 
+	ctx = auth.WithOAuth(ctx, m.authToken)
 	logEntry := log.WithFields(log.Fields{
 		"license_id": rawMsg.GetLicenseID(),
 		"action":     rawMsg.GetAction(),
