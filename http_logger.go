@@ -22,6 +22,8 @@ func (formatter *logrusFormatter) NewLogEntry(r *http.Request) middleware.LogEnt
 		"uri":    r.RequestURI,
 	})
 
+	entry.Info("Received HTTP request")
+
 	return &logrusEntry{
 		logger: formatter.logger,
 		entry:  entry,
@@ -35,7 +37,7 @@ func (entry *logrusEntry) Write(status, bytes int, header http.Header, elapsed t
 	e = e.WithField("size", bytes)
 	e = e.WithTime(time.Now())
 
-	e.Info("Incoming HTTP request")
+	e.Info("Handled HTTP request")
 }
 
 func (entry *logrusEntry) Panic(v interface{}, stack []byte) {

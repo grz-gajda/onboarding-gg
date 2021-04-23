@@ -73,7 +73,7 @@ func (c *livechatClient) sendRequest(ctx context.Context, payload livechat.Reque
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		logrus.WithField("url", payload.Endpoint()).WithField("status_code", res.StatusCode).Debug("Received invalid response from WEB API LiveChat")
+		logrus.WithField("url", payload.Endpoint()).WithField("status_code", res.StatusCode).Warn("Received invalid response from WEB API LiveChat")
 		return nil, readErrorMessage(res.Body)
 	}
 

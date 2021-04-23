@@ -116,3 +116,13 @@ func (c *livechatClient) ListAgents(ctx context.Context, payload *livechat.ListA
 
 	return body, nil
 }
+
+func (c *livechatClient) ListAgentsForTransfer(ctx context.Context, payload *livechat.ListAgentsForTransferRequest) ([]*livechat.ListAgentsForTransferResponse, error) {
+	var body []*livechat.ListAgentsForTransferResponse
+	_, err := c.sendRequest(ctx, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("list_agents_for_transfer action: %w", err)
+	}
+
+	return body, nil
+}

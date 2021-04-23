@@ -73,7 +73,6 @@ func main() {
 	})
 
 	router.Post("/webhooks/install", func(w http.ResponseWriter, r *http.Request) {
-		ctx := auth.WithClientID(r.Context(), cfg.Credentials.ClientID)
 		defer r.Body.Close()
 
 		var payload livechat.InstallApplicationWebhook

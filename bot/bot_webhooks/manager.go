@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/bot/bot_webhooks/agents"
@@ -18,15 +19,21 @@ type manager struct {
 	lcHTTP   web.LivechatRequests
 	localURL string
 
-	apps           *apps
-	sender         bot.Sender
+	apps   *apps
+	sender bot.Sender
+
+	muAuth         *sync.Mutex
 	authToken      string
 	readyToInstall chan bool
 }
 
 func (m *manager) Authorize(ctx context.Context, client livechat.Client, data *auth.AuthorizeCredentials) error {
+	m.muAuth.Lock()
+	defer m.muAuth.Unlock()
+
 	if m.authToken != "" {
-		return nil
+		m.authToken = ""
+		m.readyToInstall = make(chan bool, 1)
 	}
 
 	response, err := auth.Authorize(ctx, client, data)
@@ -35,10 +42,8 @@ func (m *manager) Authorize(ctx context.Context, client livechat.Client, data *a
 	}
 
 	m.authToken = response.AccessToken
-	go func() {
-		m.readyToInstall <- true
-		close(m.readyToInstall)
-	}()
+	m.readyToInstall <- true
+	close(m.readyToInstall)
 
 	return nil
 }
@@ -52,6 +57,8 @@ func (m *manager) InstallApp(ctx context.Context, id livechat.LicenseID) error {
 		case <-m.readyToInstall:
 			log.Debug("App is ready to be installed!")
 			break
+		case <-time.After(30 * time.Second):
+			return errors.New("timeout")
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -85,8 +92,12 @@ func (m *manager) UninstallApp(ctx context.Context, id livechat.LicenseID) error
 		return fmt.Errorf("bot: app (license id: %v) is not registered", id)
 	}
 
-	ctx = auth.WithOAuth(ctx, m.authToken)
+	defer func() {
+		m.authToken = ""
+		m.readyToInstall = make(chan bool, 1)
+	}()
 
+	ctx = auth.WithOAuth(ctx, m.authToken)
 	if _, err := app.lcHTTP.DisableLicenseWebhook(ctx, &livechat.DisableLicenseWebhookRequest{}); err != nil {
 		return err
 	}

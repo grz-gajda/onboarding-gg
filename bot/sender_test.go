@@ -40,8 +40,8 @@ func Test_Sender_Transfer_AgentOffline(t *testing.T) {
 		return p.Event.Text == "Obecnie nie ma żadnego człowieka do rozmowy :("
 	})).Return(&livechat.SendEventResponse{}, nil)
 
-	lcHTTP.On("ListAgents", ctx, mock.Anything).Return([]*livechat.ListAgentsResponse{{
-		ID: "abcd",
+	lcHTTP.On("ListAgentsForTransfer", ctx, mock.Anything).Return([]*livechat.ListAgentsForTransferResponse{{
+		AgentID: "abcd",
 	}}, nil)
 
 	lcHTTP.On("TransferChat", ctx, mock.MatchedBy(func(p *livechat.TransferChatRequest) bool {
@@ -61,8 +61,8 @@ func Test_Sender_Transfer_AgentOnline(t *testing.T) {
 	lcHTTP := new(mocks.LivechatRequests)
 	ctx := context.Background()
 
-	lcHTTP.On("ListAgents", ctx, mock.Anything).Return([]*livechat.ListAgentsResponse{{
-		ID: "abcd",
+	lcHTTP.On("ListAgentsForTransfer", ctx, mock.Anything).Return([]*livechat.ListAgentsForTransferResponse{{
+		AgentID: "abcd",
 	}}, nil)
 
 	lcHTTP.On("TransferChat", ctx, mock.Anything).Return(&livechat.TransferChatResponse{}, nil)

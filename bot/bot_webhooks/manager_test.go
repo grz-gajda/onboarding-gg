@@ -39,14 +39,19 @@ func Test_Manager_Authorize(t *testing.T) {
 	lcHTTP := new(mocks.LivechatRequests)
 
 	httpClient := new(lcMocks.Client)
-	httpClient.On("Do", mock.Anything).Once().Return(&http.Response{
+	httpClient.On("Do", mock.Anything).Return(&http.Response{
 		Body:       io.NopCloser(strings.NewReader(`{"access_token":"abcd"}`)),
 		StatusCode: http.StatusOK,
-	}, nil)
+	}, nil).Once()
+	httpClient.On("Do", mock.Anything).Return(&http.Response{
+		Body:       io.NopCloser(strings.NewReader(`{"access_token":"abcd"}`)),
+		StatusCode: http.StatusOK,
+	}, nil).Once()
 
 	mng := New(lcHTTP, "", "")
 	assert.NoError(t, mng.Authorize(ctx, httpClient, &auth.AuthorizeCredentials{}))
 	assert.NoError(t, mng.Authorize(ctx, httpClient, &auth.AuthorizeCredentials{}))
+	httpClient.AssertNumberOfCalls(t, "Do", 2)
 }
 
 func Test_Manager_Install(t *testing.T) {
@@ -135,8 +140,8 @@ func Test_Manager_Redirect_IncomingEvent_TransferChat(t *testing.T) {
 		return p.ID == validChatID && len(p.Target.IDs) > 0
 	})).Twice().Return(&livechat.TransferChatResponse{}, nil)
 
-	lcHTTP.On("ListAgents", matchCtx, mock.Anything).Once().Return([]*livechat.ListAgentsResponse{
-		{ID: livechat.AgentID("agent_1234")},
+	lcHTTP.On("ListAgentsForTransfer", matchCtx, mock.Anything).Once().Return([]*livechat.ListAgentsForTransferResponse{
+		{AgentID: livechat.AgentID("agent_1234")},
 	}, nil)
 
 	message := helperBuildPushIncomingEvent(t, validLicenseID, validChatID)

@@ -21,7 +21,9 @@ type AuthorizeCredentials struct {
 }
 
 type AuthorizationResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken  string `json:"access_token"`
+	AccountID    string `json:"account_id"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type authErrorMessage struct {
@@ -39,21 +41,21 @@ func Authorize(ctx context.Context, client livechat.Client, data *AuthorizeCrede
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://accounts.livechat.com/v2/token", strings.NewReader(b.Encode()))
 	if err != nil {
-		return &AuthorizationResponse{}, err
+		return &AuthorizationResponse{}, fmt.Errorf("auth: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Content-Length", strconv.Itoa(len(b.Encode())))
 
 	res, err := client.Do(req)
 	if err != nil {
-		return &AuthorizationResponse{}, err
+		return &AuthorizationResponse{}, fmt.Errorf("auth: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		var body authErrorMessage
 		if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-			return &AuthorizationResponse{}, err
+			return &AuthorizationResponse{}, fmt.Errorf("auth: cannot read error's response body: %w", err)
 		}
 
 		logrus.WithContext(ctx).WithFields(logrus.Fields{
@@ -66,7 +68,7 @@ func Authorize(ctx context.Context, client livechat.Client, data *AuthorizeCrede
 
 	var token AuthorizationResponse
 	if err := json.NewDecoder(res.Body).Decode(&token); err != nil {
-		return &AuthorizationResponse{}, err
+		return &AuthorizationResponse{}, fmt.Errorf("auth: cannot read response body: %w", err)
 	}
 
 	return &token, nil

@@ -2,7 +2,6 @@ package bot
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/livechat/onboarding/livechat"
@@ -40,30 +39,31 @@ func (s *sender) Talk(ctx context.Context, chatID livechat.ChatID, msg *livechat
 }
 
 func (s *sender) redirectToAgent(ctx context.Context, chatID livechat.ChatID) error {
-	realAgents, err := s.client.ListAgents(ctx, &livechat.ListAgentsRequest{})
+	realAgents, err := s.client.ListAgentsForTransfer(ctx, &livechat.ListAgentsForTransferRequest{ChatID: chatID})
 	if err != nil {
 		log.WithError(err).Error("Cannot fetch list of real agents")
 		return err
 	}
+
 	if len(realAgents) == 0 {
-		log.Warn("Found empty list of real agents")
-		return errors.New("empty list of agents")
-	}
-
-	if _, err = s.client.TransferChat(ctx, buildTransferChatMessage(chatID, realAgents[0].ID)); err != nil {
-		if isAgentOffline(err) {
-			_, err = s.client.SendEvent(ctx, livechat.BuildMessage(chatID, "Obecnie nie ma żadnego człowieka do rozmowy :("))
-			return err
-		}
-		if isAgentAssigned(err) {
-			return nil
-		}
-
-		log.WithError(err).WithField("chat_id", chatID).Error("Cannot transfer chat to agent on demand")
+		_, err = s.client.SendEvent(ctx, livechat.BuildMessage(chatID, "Obecnie nie ma żadnego człowieka do rozmowy :("))
 		return err
 	}
 
-	return nil
+	for _, realAgent := range realAgents {
+		if _, err = s.client.TransferChat(ctx, buildTransferChatMessage(chatID, realAgent.AgentID)); err != nil {
+			if isAgentOffline(err) || isAgentAssigned(err) {
+				continue
+			}
+
+			log.WithError(err).WithField("chat_id", chatID).Error("Cannot transfer chat to agent on demand")
+			continue
+		}
+		return nil
+	}
+
+	_, err = s.client.SendEvent(ctx, livechat.BuildMessage(chatID, "Obecnie nie ma żadnego człowieka do rozmowy :("))
+	return err
 }
 
 func buildTransferChatMessage(chatID livechat.ChatID, agentID ...livechat.AgentID) *livechat.TransferChatRequest {
@@ -76,7 +76,7 @@ func buildTransferChatMessage(chatID livechat.ChatID, agentID ...livechat.AgentI
 			Type: "agent",
 			IDs:  agentID,
 		},
-		Force: true,
+		Force: false,
 	}
 }
 

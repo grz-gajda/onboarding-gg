@@ -15,6 +15,7 @@ type LivechatRequests interface {
 
 	TransferChat(context.Context, *livechat.TransferChatRequest) (*livechat.TransferChatResponse, error)
 	SendEvent(context.Context, *livechat.Event) (*livechat.SendEventResponse, error)
+	ListAgentsForTransfer(context.Context, *livechat.ListAgentsForTransferRequest) ([]*livechat.ListAgentsForTransferResponse, error)
 
 	RegisterWebhook(context.Context, *livechat.RegisterWebhookRequest) (*livechat.RegisterWebhookResponse, error)
 	UnregisterWebhook(context.Context, *livechat.UnregisterWebhookRequest) (*livechat.UnregisterWebhookResponse, error)

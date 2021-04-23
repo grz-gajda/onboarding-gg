@@ -2,6 +2,7 @@ package bot_webhooks
 
 import (
 	"context"
+	"sync"
 
 	"github.com/livechat/onboarding/bot"
 	"github.com/livechat/onboarding/livechat"
@@ -25,6 +26,7 @@ func New(lcHTTP web.LivechatRequests, localURL string, authorID string) Manager 
 		localURL:       localURL,
 		apps:           &apps{},
 		sender:         bot.NewSender(lcHTTP, authorID),
-		readyToInstall: make(chan bool),
+		readyToInstall: make(chan bool, 1),
+		muAuth:         &sync.Mutex{},
 	}
 }

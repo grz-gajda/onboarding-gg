@@ -14,9 +14,10 @@ const (
 	listBotsEndpoint   = "/configuration/action/list_bots"
 	listAgentsEndpoint = "/configuration/action/list_agents"
 
-	transferChatEndpoint       = "/agent/action/transfer_chat"
-	sendEventEndpoint          = "/agent/action/send_event"
-	removeUserFromChatEndpoint = "/agent/action/remove_user_from_chat"
+	transferChatEndpoint          = "/agent/action/transfer_chat"
+	sendEventEndpoint             = "/agent/action/send_event"
+	removeUserFromChatEndpoint    = "/agent/action/remove_user_from_chat"
+	listAgentsForTransferEndpoint = "/agent/action/list_agents_for_transfer"
 
 	registerWebhookEndpoint       = "/configuration/action/register_webhook"
 	unregisterWebhookEndpoint     = "/configuration/action/unregister_webhook"
@@ -112,8 +113,7 @@ type DisableLicenseWebhookRequest struct {
 	ClientID ClientID `json:"owner_client_id,omitempty"`
 }
 
-func (r *DisableLicenseWebhookRequest) Endpoint() string          { return disableLicenseWebhookEndpoint }
-func (r *DisableLicenseWebhookRequest) WithClientID(cid ClientID) { r.ClientID = cid }
+func (r *DisableLicenseWebhookRequest) Endpoint() string { return disableLicenseWebhookEndpoint }
 
 type DisableLicenseWebhookResponse struct{}
 
@@ -134,4 +134,15 @@ type ListAgentsResponse struct {
 	ID            AgentID `json:"id"`
 	JobTitle      string  `json:"job_title"`
 	MaxChatsCount int     `json:"max_chats_count"`
+}
+
+type ListAgentsForTransferRequest struct {
+	ChatID ChatID `json:"chat_id"`
+}
+
+func (r *ListAgentsForTransferRequest) Endpoint() string { return listAgentsForTransferEndpoint }
+
+type ListAgentsForTransferResponse struct {
+	AgentID          AgentID `json:"agent_id"`
+	TotalActiveChats int     `json:"total_active_chats"`
 }
