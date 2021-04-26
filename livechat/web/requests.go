@@ -37,6 +37,16 @@ func (c *livechatClient) ListBots(ctx context.Context, payload *livechat.ListBot
 	return body, nil
 }
 
+func (c *livechatClient) GetChat(ctx context.Context, payload *livechat.GetChatRequest) (*livechat.GetChatResponse, error) {
+	var body livechat.GetChatResponse
+	_, err := c.sendRequest(ctx, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("get_chat action: %w", err)
+	}
+
+	return &body, nil
+}
+
 func (c *livechatClient) TransferChat(ctx context.Context, payload *livechat.TransferChatRequest) (*livechat.TransferChatResponse, error) {
 	var body livechat.TransferChatResponse
 	_, err := c.sendRequest(ctx, payload, &body)
@@ -122,6 +132,16 @@ func (c *livechatClient) ListAgentsForTransfer(ctx context.Context, payload *liv
 	_, err := c.sendRequest(ctx, payload, &body)
 	if err != nil {
 		return nil, fmt.Errorf("list_agents_for_transfer action: %w", err)
+	}
+
+	return body, nil
+}
+
+func (c *livechatClient) RemoveUserFromChat(ctx context.Context, payload *livechat.RemoveUserFromChatRequest) (*livechat.RemoveUserFromChatResponse, error) {
+	var body *livechat.RemoveUserFromChatResponse
+	_, err := c.sendRequest(ctx, payload, &body)
+	if err != nil {
+		return nil, fmt.Errorf("remove_user_from_chat action: %w", err)
 	}
 
 	return body, nil

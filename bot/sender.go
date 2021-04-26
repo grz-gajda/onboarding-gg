@@ -53,12 +53,14 @@ func (s *sender) redirectToAgent(ctx context.Context, chatID livechat.ChatID) er
 	for _, realAgent := range realAgents {
 		if _, err = s.client.TransferChat(ctx, buildTransferChatMessage(chatID, realAgent.AgentID)); err != nil {
 			if isAgentOffline(err) || isAgentAssigned(err) {
+				log.WithError(err).WithField("chat_id", chatID).Debug("Agent is offline or already assigned to chat")
 				continue
 			}
 
 			log.WithError(err).WithField("chat_id", chatID).Error("Cannot transfer chat to agent on demand")
 			continue
 		}
+
 		return nil
 	}
 

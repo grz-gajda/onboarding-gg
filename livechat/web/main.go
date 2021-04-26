@@ -13,6 +13,7 @@ type LivechatRequests interface {
 	ListBots(context.Context, *livechat.ListBotsRequest) ([]*livechat.ListBotResponse, error)
 	ListAgents(context.Context, *livechat.ListAgentsRequest) ([]*livechat.ListAgentsResponse, error)
 
+	GetChat(context.Context, *livechat.GetChatRequest) (*livechat.GetChatResponse, error)
 	TransferChat(context.Context, *livechat.TransferChatRequest) (*livechat.TransferChatResponse, error)
 	SendEvent(context.Context, *livechat.Event) (*livechat.SendEventResponse, error)
 	ListAgentsForTransfer(context.Context, *livechat.ListAgentsForTransferRequest) ([]*livechat.ListAgentsForTransferResponse, error)
@@ -23,6 +24,7 @@ type LivechatRequests interface {
 	DisableLicenseWebhook(context.Context, *livechat.DisableLicenseWebhookRequest) (*livechat.DisableLicenseWebhookResponse, error)
 
 	SetRoutingStatus(context.Context, *livechat.SetRoutingStatusRequest) (*livechat.SetRoutingStatusResponse, error)
+	RemoveUserFromChat(context.Context, *livechat.RemoveUserFromChatRequest) (*livechat.RemoveUserFromChatResponse, error)
 }
 
 func New(client livechat.Client, url string) LivechatRequests {

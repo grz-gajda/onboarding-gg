@@ -105,7 +105,6 @@ func (a *app) TransferChat(ctx context.Context, msg *livechat.PushIncomingChat) 
 func (a *app) IncomingEvent(ctx context.Context, msg *livechat.PushIncomingMessage) error {
 	agent, err := a.agents.FindByChat(msg.Payload.ChatID)
 	if err != nil {
-		log.WithError(err).WithField("chat_id", msg.Payload.ChatID).Info("Any agent is assigned to this chat")
 		return nil
 	}
 
@@ -135,25 +134,7 @@ func buildTransferChatMessage(chatID livechat.ChatID, agentID livechat.AgentID) 
 			Type: "agent",
 			IDs:  []livechat.AgentID{agentID},
 		},
-		Force: true,
-	}
-}
-
-func mapIncomingEventIntoTransferChat(msg *livechat.PushIncomingMessage) *livechat.PushIncomingChat {
-	return &livechat.PushIncomingChat{
-		Action:    "incoming_chat",
-		LicenseID: msg.LicenseID,
-		Payload: struct {
-			Chat struct {
-				ID livechat.ChatID "json:\"id\""
-			} "json:\"chat\""
-		}{
-			Chat: struct {
-				ID livechat.ChatID "json:\"id\""
-			}{
-				ID: msg.Payload.ChatID,
-			},
-		},
+		Force: false,
 	}
 }
 

@@ -116,13 +116,6 @@ func Test_Manager_Redirect_IncomingEvent(t *testing.T) {
 	ctx := context.Background()
 	lcHTTP := new(mocks.LivechatRequests)
 
-	lcHTTP.On("SendEvent", mock.MatchedBy(func(c context.Context) bool {
-		authorID, err := auth.GetAuthorID(c)
-		return assert.NoError(t, err) && assert.Equal(t, validBotID, authorID)
-	}), mock.MatchedBy(func(p *livechat.Event) bool {
-		return p.ChatID == validChatID
-	})).Once().Return(&livechat.SendEventResponse{}, nil)
-
 	message := helperBuildPushIncomingEvent(t, validLicenseID, validChatID)
 	message.Payload.Event.Text = "Hello world"
 	message.Payload.Event.AuthorID = "custom_author_id"
@@ -130,6 +123,7 @@ func Test_Manager_Redirect_IncomingEvent(t *testing.T) {
 	manager, _ := helperCreateManager(t, ctx, lcHTTP)
 	err := manager.Redirect(ctx, message)
 	assert.NoError(t, err)
+	lcHTTP.AssertNumberOfCalls(t, "SendEvent", 0)
 }
 
 func Test_Manager_Redirect_IncomingEvent_TransferChat(t *testing.T) {
@@ -287,6 +281,28 @@ func helperBuildPushUserAddedToChat(t *testing.T, licenseID livechat.LicenseID, 
 				Type:    "agent",
 			},
 		},
+	}
+}
+
+func helperBuildGetChatResponse(t *testing.T, chatID livechat.ChatID, agentsID ...livechat.AgentID) *livechat.GetChatResponse {
+	users := []struct {
+		ID   livechat.AgentID "json:\"id\""
+		Type string           "json:\"type\""
+	}{}
+	for _, agentID := range agentsID {
+		users = append(users, struct {
+			ID   livechat.AgentID "json:\"id\""
+			Type string           "json:\"type\""
+		}{
+			ID:   agentID,
+			Type: "agent",
+		})
+	}
+
+	return &livechat.GetChatResponse{
+		ID:      chatID,
+		UserIDs: agentsID,
+		Users:   users,
 	}
 }
 

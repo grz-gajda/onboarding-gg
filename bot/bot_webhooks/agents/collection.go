@@ -63,8 +63,17 @@ func (a *collection) FindByChat(chatID livechat.ChatID) (*Agent, error) {
 	defer a.mu.Unlock()
 
 	for _, agent := range a.agents {
+		isChatArchived := func(c livechat.ChatID) bool {
+			for _, chat := range agent.removed {
+				if chat == c {
+					return true
+				}
+			}
+			return false
+		}
+
 		for _, chat := range agent.chats {
-			if chat == chatID {
+			if chat == chatID && !isChatArchived(chat) {
 				return agent, nil
 			}
 		}
@@ -90,6 +99,19 @@ func (a *collection) FindByChatExclude(chatID livechat.ChatID) (*Agent, error) {
 		}
 
 		if !hasChat {
+			return agent, nil
+		}
+	}
+
+	return nil, fmt.Errorf("bot: agent cannot be found")
+}
+
+func (a *collection) FindByID(agentID livechat.AgentID) (*Agent, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	for _, agent := range a.agents {
+		if agent.ID == agentID {
 			return agent, nil
 		}
 	}

@@ -17,6 +17,7 @@ type Agents interface {
 
 	FindByChat(livechat.ChatID) (*Agent, error)
 	FindByChatExclude(livechat.ChatID) (*Agent, error)
+	FindByID(livechat.AgentID) (*Agent, error)
 }
 
 func NewCollection() Agents {

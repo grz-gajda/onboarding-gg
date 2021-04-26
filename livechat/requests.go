@@ -14,6 +14,7 @@ const (
 	listBotsEndpoint   = "/configuration/action/list_bots"
 	listAgentsEndpoint = "/configuration/action/list_agents"
 
+	getChatEndpoint               = "/agent/action/get_chat"
 	transferChatEndpoint          = "/agent/action/transfer_chat"
 	sendEventEndpoint             = "/agent/action/send_event"
 	removeUserFromChatEndpoint    = "/agent/action/remove_user_from_chat"
@@ -32,8 +33,7 @@ type CreateBotRequest struct {
 	ClientID ClientID `json:"owner_client_id,omitempty"`
 }
 
-func (r *CreateBotRequest) Endpoint() string          { return createBotEndpoint }
-func (r *CreateBotRequest) WithClientID(cid ClientID) { r.ClientID = cid }
+func (r *CreateBotRequest) Endpoint() string { return createBotEndpoint }
 
 type CreateBotResponse struct {
 	ID AgentID `json:"id"`
@@ -104,8 +104,7 @@ type EnableLicenseWebhookRequest struct {
 	ClientID ClientID `json:"owner_client_id,omitempty"`
 }
 
-func (r *EnableLicenseWebhookRequest) Endpoint() string          { return enableLicenseWebhookEndpoint }
-func (r *EnableLicenseWebhookRequest) WithClientID(cid ClientID) { r.ClientID = cid }
+func (r *EnableLicenseWebhookRequest) Endpoint() string { return enableLicenseWebhookEndpoint }
 
 type EnableLicenseWebhookResponse struct{}
 
@@ -146,3 +145,29 @@ type ListAgentsForTransferResponse struct {
 	AgentID          AgentID `json:"agent_id"`
 	TotalActiveChats int     `json:"total_active_chats"`
 }
+
+type GetChatRequest struct {
+	ChatID   ChatID `json:"chat_id"`
+	ThreadID string `json:"thread_id,omitempty"`
+}
+
+func (r *GetChatRequest) Endpoint() string { return getChatEndpoint }
+
+type GetChatResponse struct {
+	ID      ChatID    `json:"id"`
+	UserIDs []AgentID `json:"user_ids"`
+	Users   []struct {
+		ID   AgentID `json:"id"`
+		Type string  `json:"type"`
+	} `json:"users"`
+}
+
+type RemoveUserFromChatRequest struct {
+	ChatID   ChatID  `json:"chat_id"`
+	UserID   AgentID `json:"user_id"`
+	UserType string  `json:"user_type"`
+}
+
+func (r *RemoveUserFromChatRequest) Endpoint() string { return removeUserFromChatEndpoint }
+
+type RemoveUserFromChatResponse struct{}

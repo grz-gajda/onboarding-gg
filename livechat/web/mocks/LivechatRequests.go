@@ -106,6 +106,29 @@ func (_m *LivechatRequests) EnableLicenseWebhook(_a0 context.Context, _a1 *livec
 	return r0, r1
 }
 
+// GetChat provides a mock function with given fields: _a0, _a1
+func (_m *LivechatRequests) GetChat(_a0 context.Context, _a1 *livechat.GetChatRequest) (*livechat.GetChatResponse, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *livechat.GetChatResponse
+	if rf, ok := ret.Get(0).(func(context.Context, *livechat.GetChatRequest) *livechat.GetChatResponse); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*livechat.GetChatResponse)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *livechat.GetChatRequest) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListAgents provides a mock function with given fields: _a0, _a1
 func (_m *LivechatRequests) ListAgents(_a0 context.Context, _a1 *livechat.ListAgentsRequest) ([]*livechat.ListAgentsResponse, error) {
 	ret := _m.Called(_a0, _a1)
@@ -190,6 +213,29 @@ func (_m *LivechatRequests) RegisterWebhook(_a0 context.Context, _a1 *livechat.R
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, *livechat.RegisterWebhookRequest) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RemoveUserFromChat provides a mock function with given fields: _a0, _a1
+func (_m *LivechatRequests) RemoveUserFromChat(_a0 context.Context, _a1 *livechat.RemoveUserFromChatRequest) (*livechat.RemoveUserFromChatResponse, error) {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 *livechat.RemoveUserFromChatResponse
+	if rf, ok := ret.Get(0).(func(context.Context, *livechat.RemoveUserFromChatRequest) *livechat.RemoveUserFromChatResponse); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*livechat.RemoveUserFromChatResponse)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *livechat.RemoveUserFromChatRequest) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
